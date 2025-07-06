@@ -8,9 +8,9 @@
 import Foundation
 
 
-func find_idx_of_max<T: Comparable>(of a: [T]) -> Int? {
+func find_idx_of_max(of a: [Double]) -> Int? {
     assert(a.count >= 1)
-    if a.allSatisfy({$0 == a.first}) { return nil } // nil if all elements are equal
+    if a.allSatisfy({$0 == 0.0}) { return nil } // nil if all elements are zero
     
     var max = a[0]
     var maxi = 0
@@ -37,4 +37,19 @@ func get_integs_in_circle(diameter: Double) -> [[Int]] {
     return coords
 }
 
-//func difference(a: [Double])
+func get_integs_in_quarter_circle(radius: Double) -> [[Int]] {
+    // positive quarter, and excludes (0,0)
+    let r2 = radius * radius
+    let range = 0 ... Int(radius)
+    var coords: [[Int]] = []
+    
+    for x in range {
+        for y in range {
+            if x==0 && y==0 {continue}
+            if Double(x*x + y*y) < r2 { coords.append([x,y]) }
+        }
+    }
+    return coords
+}
+
+

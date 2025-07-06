@@ -11,29 +11,34 @@ import SwiftUI
 
 
 struct Simulation {
+    @EnvironmentObject var chemicals: Chemical_eqns
+    
     let height: Int
     let width: Int
-    let chem_cols: [Colour]
+//    let chem_cols: [Colour] = chemicals.chem_cols
     var values: Grid
+    var is_running = false
+    let background_col: Colour = .grey
     
-    init(height: Int, width: Int, chem_cols: [Colour]) {
+    init(height: Int, width: Int) { //, chem_cols: [Colour]
         self.height = height
         self.width = width
-        self.chem_cols = chem_cols
-        self.values = Grid(height: height, width: width, num_chems: chem_cols.count)
+//        self.chem_cols = chem_cols
+        self.values = Grid(height: height, width: width, num_chems: chemicals.chems.count)
     }
     
     func export_to_view() -> some View {
-        let background_pixel = make_PixelData(col: .grey)
+        let background_pixel = make_PixelData(col: background_col)
         var pixel_data = [PixelData](repeating: background_pixel, count: Int(height * width))
-        
+
         for x in 0 ..< width {
             for y in 0 ..< height {
-                // mix of colour channels for each chemical
+                // move 0 check to the start? add mode option?
+
                 
                 // show most concentrated chemical
                 guard let i = find_idx_of_max(of: values[x,y].concs) else {
-                    continue // pixel is left as background (grey) if all concs are equal
+                    continue // pixel is left as background (grey) if all concs are zero
                 }
                 pixel_data[(x * height) + y] = make_PixelData(col: chem_cols[i])
             }
@@ -56,6 +61,7 @@ struct Simulation {
     }
     
     mutating func create_circle(of chem_i: Int, around position: [Int], diameter: Double, amount: Double) {
+        // if chem_i == chem_cols.count, sponge up chemicals, else add the chosen one.
         let coords = get_integs_in_circle(diameter: diameter)
         var x = 0
         var y = 0
@@ -64,7 +70,11 @@ struct Simulation {
             x = xy[0] + position[0]
             y = xy[1] + position[1]
             if is_point_valid(x, y) {
-                values[x, y].concs[chem_i] += amount
+                if chem_i == chem_cols.count {
+                    values[x, y].concs = [Double](repeating: 0.0, count: chem_cols.count) // sponge
+                } else {
+                    values[x, y].concs[chem_i] += amount // add chemical
+                }
             }
         }
     }
@@ -84,8 +94,7 @@ struct Simulation {
             }
         }
         values = new_values
-//        print(values[100,100].concs, values[100,101].concs)
-        
+
         // make a colour mode for gradients
         // circular diffusion
     }
@@ -95,7 +104,7 @@ struct Simulation {
         var ans = [Double](repeating: 0.0, count: chem_cols.count)
         if (x != 0) && (y != 0) && (x != width-1) && (y != height-1) {
             for i in 0..<chem_cols.count { // XXX needs efficiency
-                ans[i] = values[x-1,y].concs[i] + values[x+1,y].concs[i] + values[x,y-1].concs[i] + values[x,y+1].concs[i] - 4*values[x,y].concs[i]
+                ans[i] = values[x-1,y].concs[i] + values[x+1,y].concs[i] + values[x,y-1].concs[i] + values[x,y+1].concs[i] - 4 * values[x,y].concs[i]
             }
              
         }

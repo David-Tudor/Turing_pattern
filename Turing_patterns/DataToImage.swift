@@ -88,7 +88,7 @@ func colour_rgb(col: Colour) -> [Int] {
     switch col {
     case .black: return [0, 0, 0]
     case .white: return [255, 255, 255]
-    case .grey: return [128, 128, 128]
+    case .grey: return [210, 210, 210]
     case .blue: return [0, 0, 255]
     case .red: return [255, 0, 0]
     case .green: return [0, 255, 0]
