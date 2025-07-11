@@ -18,7 +18,7 @@ struct Simulation {
     let chem_cols: [Colour]
     var values: Grid
     var is_running = false
-    let background_col: Colour = .grey
+    let background_col: Colour = rgb_for(col: .grey)
     
     init(height: Int, width: Int, chem_cols: [Colour]) { //, chem_cols: [Colour]
         self.height = height
@@ -28,7 +28,7 @@ struct Simulation {
     }
     
     func export_to_view() -> some View {
-        let background_pixel = make_PixelData(col: background_col)
+        let background_pixel = make_PixelData(rgb: background_col)
         var pixel_data = [PixelData](repeating: background_pixel, count: Int(height * width))
 
         for x in 0 ..< width {
@@ -40,7 +40,7 @@ struct Simulation {
                 guard let i = find_idx_of_max(of: values[x,y].concs) else {
                     continue // pixel is left as background (grey) if all concs are zero
                 }
-                pixel_data[(x * height) + y] = make_PixelData(col: chem_cols[i])
+                pixel_data[(x * height) + y] = make_PixelData(rgb: chem_cols[i])
             }
         }
         

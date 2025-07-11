@@ -75,7 +75,9 @@ func pixeldata_to_image(pixels: [PixelData], width: Int, height: Int) -> CGImage
 
 // My own code:
 
-enum Colour {
+typealias Colour = [Int]
+
+enum Colour_enum {
     case black
     case white
     case grey
@@ -84,7 +86,7 @@ enum Colour {
     case green
 }
 
-func colour_rgb(col: Colour) -> [Int] {
+func rgb_for(col: Colour_enum) -> Colour {
     switch col {
     case .black: return [0, 0, 0]
     case .white: return [255, 255, 255]
@@ -96,8 +98,7 @@ func colour_rgb(col: Colour) -> [Int] {
 }
 
 
-func make_PixelData(col: Colour) -> PixelData {
-    let rgb = colour_rgb(col: col)
+func make_PixelData(rgb: Colour) -> PixelData {
     return PixelData(a: 255, r: UInt8(rgb[0]), g: UInt8(rgb[1]), b: UInt8(rgb[2]))
 }
 

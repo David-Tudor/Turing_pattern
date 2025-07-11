@@ -18,7 +18,7 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
-    @State var simulation = Simulation(height: 200, width: 200, chem_cols: [.blue, .red, .green])
+    @State var simulation = Simulation(height: 200, width: 200, chem_cols: [rgb_for(col: .blue), rgb_for(col: .red), rgb_for(col: .green)])
     @StateObject var chemicals = Chemical_eqns()
     
     @State private var location = CGPoint.zero
@@ -55,9 +55,8 @@ struct ContentView: View {
                 HStack {
                     let is_chem = !(brush_chem_i == simulation.chem_cols.count)
                     Text("Brush: \(is_chem ? "chemical" : "sponge")")
-                    let rgb = colour_rgb(col: is_chem ? // sponge not chemical if false
-                                         simulation.chem_cols[brush_chem_i] : simulation.background_col
-                    )
+                    let rgb = is_chem ? simulation.chem_cols[brush_chem_i] : simulation.background_col // sponge not chemical if false
+                    
                     Rectangle()
                         .frame(width: CGFloat(10), height: CGFloat(10))
                         .foregroundColor(Color(red: Double(rgb[0])/255, green: Double(rgb[1])/255, blue: Double(rgb[2])/255))
@@ -118,10 +117,7 @@ struct ContentView: View {
                 }
 
             } // end of 2nd column VStack
-            
-            
-            
-            
+
         } // end of top HStack
         .padding(20)
         .environmentObject(chemicals)
