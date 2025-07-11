@@ -18,7 +18,7 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
-    @State var simulation = Simulation(height: 200, width: 200)
+    @State var simulation = Simulation(height: 200, width: 200, chem_cols: [.blue, .red, .green])
     @StateObject var chemicals = Chemical_eqns()
     
     @State private var location = CGPoint.zero

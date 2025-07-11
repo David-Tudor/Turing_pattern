@@ -11,20 +11,20 @@ import SwiftUI
 
 
 struct Simulation {
-    @EnvironmentObject var chemicals: Chemical_eqns
+//    @EnvironmentObject var chemicals: Chemical_eqns
     
     let height: Int
     let width: Int
-//    let chem_cols: [Colour] = chemicals.chem_cols
+    let chem_cols: [Colour]
     var values: Grid
     var is_running = false
     let background_col: Colour = .grey
     
-    init(height: Int, width: Int) { //, chem_cols: [Colour]
+    init(height: Int, width: Int, chem_cols: [Colour]) { //, chem_cols: [Colour]
         self.height = height
         self.width = width
-//        self.chem_cols = chem_cols
-        self.values = Grid(height: height, width: width, num_chems: chemicals.chems.count)
+        self.chem_cols = chem_cols
+        self.values = Grid(height: height, width: width, num_chems: chem_cols.count)
     }
     
     func export_to_view() -> some View {
