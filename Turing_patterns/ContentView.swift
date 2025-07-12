@@ -10,7 +10,9 @@
 // How to set an fps that the timer will use, but trouble at defined on init?
 // Speed: add parallelism? add elements of lists efficiently?
 // How to have n colour channels?
-// More circular diffusion? - improve laplacian - bigger area, symmetry
+// SIMD
+// prevent negative colours
+// move some UI as they throttle
 // Saving system
 
 
@@ -18,7 +20,8 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
-    @State var simulation = Simulation(height: 200, width: 200, chem_cols: [rgb_for(col: .blue), rgb_for(col: .red), rgb_for(col: .green)])
+//    @State var simulation = Simulation(height: 200, width: 200, chem_cols: [rgb_for(col: .red), rgb_for(col: .green), rgb_for(col: .blue)])
+    @State var simulation = Simulation(height: 200, width: 200, chem_cols: [rgb_for(col: .cyan), rgb_for(col: .yellow), rgb_for(col: .magenta)])
     @StateObject var chemicals = Chemical_eqns()
     
     @State private var location = CGPoint.zero

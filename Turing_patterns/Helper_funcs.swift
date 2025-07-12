@@ -46,7 +46,7 @@ func get_integs_in_quarter_circle(radius: Double) -> [[Int]] {
     for x in range {
         for y in range {
             if x==0 && y==0 {continue}
-            if Double(x*x + y*y) < r2 { coords.append([x,y]) }
+            if Double(x*x + y*y) <= r2 { coords.append([x,y]) }
         }
     }
     return coords

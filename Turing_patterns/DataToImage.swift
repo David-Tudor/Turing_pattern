@@ -84,6 +84,9 @@ enum Colour_enum {
     case blue
     case red
     case green
+    case cyan
+    case yellow
+    case magenta
 }
 
 func rgb_for(col: Colour_enum) -> Colour {
@@ -94,11 +97,15 @@ func rgb_for(col: Colour_enum) -> Colour {
     case .blue: return [0, 0, 255]
     case .red: return [255, 0, 0]
     case .green: return [0, 255, 0]
+    case .cyan: return [0, 255, 255]
+    case .yellow: return [255, 0, 255]
+    case .magenta: return [255, 255, 0]
     }
 }
 
 
 func make_PixelData(rgb: Colour) -> PixelData {
+//    print(rgb)
     return PixelData(a: 255, r: UInt8(rgb[0]), g: UInt8(rgb[1]), b: UInt8(rgb[2]))
 }
 

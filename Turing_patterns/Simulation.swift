@@ -7,45 +7,91 @@
 
 import Foundation
 import SwiftUI
+import simd
 
 
 
 struct Simulation {
-//    @EnvironmentObject var chemicals: Chemical_eqns
-    
+    //    @EnvironmentObject var chemicals: Chemical_eqns
     let height: Int
     let width: Int
-    let chem_cols: [Colour]
+    let chem_cols: [Colour] // overwritten with cym if <=3 colours
     var values: Grid
     var is_running = false
-    let background_col: Colour = rgb_for(col: .grey)
+    let background_col: Colour // if .white, cym used, else rgb or specified colours
+    let dt: Double
+    let is_rgb_not_cym: Bool? // true=rgb, false=cym, nil=too many chems
     
-    init(height: Int, width: Int, chem_cols: [Colour]) { //, chem_cols: [Colour]
+    let circle_coords = get_integs_in_quarter_circle(radius: 1)
+    var circle_coords_dtodist2: [Double]
+    
+    init(height: Int, width: Int, chem_cols: [Colour], dt: Double = 0.1, background_col_enum: Colour_enum = .white) { //, chem_cols: [Colour]
         self.height = height
         self.width = width
-        self.chem_cols = chem_cols
+        self.dt = dt
         self.values = Grid(height: height, width: width, num_chems: chem_cols.count)
+        self.background_col = rgb_for(col: background_col_enum)
+        
+        self.circle_coords_dtodist2 = circle_coords.map({ xy in
+            return dt/(pow(Double(xy[0]), 2) + pow(Double(xy[1]), 2)) // returns squared distance
+        })
+        
+//        let default_cols = [rgb_for(col: .red), rgb_for(col: .green), rgb_for(col: .blue)]
+        let default_cols = [rgb_for(col: .cyan), rgb_for(col: .yellow), rgb_for(col: .magenta)]
+        if chem_cols.count <= 3 {
+            self.chem_cols = Array(default_cols[0...chem_cols.count-1])
+            self.is_rgb_not_cym = background_col_enum == .white ? false : true
+        } else {
+            self.chem_cols = chem_cols
+            self.is_rgb_not_cym = nil
+        }
     }
     
     func export_to_view() -> some View {
         let background_pixel = make_PixelData(rgb: background_col)
         var pixel_data = [PixelData](repeating: background_pixel, count: Int(height * width))
-
+        
         for x in 0 ..< width {
             for y in 0 ..< height {
                 // move 0 check to the start? add mode option?
-
                 
-                // show most concentrated chemical
-                guard let i = find_idx_of_max(of: values[x,y].concs) else {
-                    continue // pixel is left as background (grey) if all concs are zero
+                if values[x,y].concs.allSatisfy({$0 == 0.0}) {
+                    pixel_data[(x * height) + y] = background_pixel
+                } else if chem_cols.count <= 3 {
+                    pixel_data[(x * height) + y] = make_PixelData(rgb: concs_to_colours(concs: values[x,y].concs))
+                } else {
+                    // show most concentrated chemical
+                    guard let i = find_idx_of_max(of: values[x,y].concs) else {
+                        continue // pixel is left as background (grey) if all concs are zero
+                    }
+                    pixel_data[(x * height) + y] = make_PixelData(rgb: chem_cols[i])
                 }
-                pixel_data[(x * height) + y] = make_PixelData(rgb: chem_cols[i])
             }
         }
         
         let cgimage = pixeldata_to_image(pixels: pixel_data, width: width, height: height)
         return Image(cgimage, scale: 1, label: Text(""))
+    }
+    
+    func concs_to_colours(concs: [Double]) -> Colour {
+        // assumes 3 or fewer concs, else force unwrap of is_rgb_not_cym will fail.
+        var c = 0.0
+        
+        var col: [Int]
+        let sign: Int
+        if is_rgb_not_cym! {
+            col = [0, 0, 0] // additive colour for rgb
+            sign = 1
+        } else {
+            col = [255, 255, 255] // subtractive colour for cym
+            sign = -1
+        }
+        
+        for i in 0 ..< concs.count {
+            c = concs[i]
+            col[i] += sign * Int( 256 * c/(c+0.1) )
+        }
+        return col
     }
     
     func is_point_valid(_ x: Int, _ y: Int) -> Bool {
@@ -86,15 +132,18 @@ struct Simulation {
         
         for x in 0 ..< width {
             for y in 0 ..< height {
-                lap = laplacian(x, y) // check for negatives
+                lap = laplacian(x, y) // TODO check for negatives
                 for i in 0..<chem_cols.count { // use map?
-                    new_values[x,y].concs[i] += lap[i] * 0.1 // dt = 0.1
+                    new_values[x,y].concs[i] += lap[i] * dt
                 }
                 
             }
         }
         values = new_values
-
+        values = reaction()
+        
+        //        values = fast_laplacian()
+        
         // make a colour mode for gradients
         // circular diffusion
     }
@@ -106,10 +155,56 @@ struct Simulation {
             for i in 0..<chem_cols.count { // XXX needs efficiency
                 ans[i] = values[x-1,y].concs[i] + values[x+1,y].concs[i] + values[x,y-1].concs[i] + values[x,y+1].concs[i] - 4 * values[x,y].concs[i]
             }
-             
+            
         }
         return ans
+    }
+    
+    func fast_laplacian() -> Grid {
+        var new_values = values
+        var diff = 0.0
         
+        for i in 0..<chem_cols.count {
+            for x in 0 ..< width {
+                for y in 0 ..< height {
+                    for (j, xy1) in circle_coords.enumerated() {
+                        if is_point_valid(x+xy1[0],y+xy1[1]) {
+                            diff = (values[x+xy1[0],y+xy1[1]].concs[i] - values[x,y].concs[i]) * circle_coords_dtodist2[j]
+                            new_values[x,y].concs[i] += diff
+                            new_values[x+xy1[0],y+xy1[1]].concs[i] -= diff
+                        }
+                    }
+                }
+            }
+        }
+        return new_values
+    }
+    
+    func reaction() -> Grid {
+        let rates = [1.0, 0.1, 0.4]
+        func expr1(_ a: Double, _ b: Double, _ p: Double) -> Double { return -rates[0] * a*b*b + rates[1] * pow(b, 3) }
+        func expr2(_ a: Double, _ b: Double, _ p: Double) -> Double { return -rates[2] * b }
+        var new_values = values
+        var concs: [Double]
+        var val1: Double
+        var val2: Double
+        for x in 0 ..< width {
+            for y in 0 ..< height { // can't use a matrix as not linear e.g. in b. what else?
+                concs = values[x,y].concs
+                val1 = expr1(concs[0], concs[1], concs[2]) * dt
+                val2 = expr2(concs[0], concs[1], concs[2]) * dt
+                if new_values[x,y].concs[0] > -val1 && new_values[x,y].concs[1] > val1 { // only react if concs will stay positive
+                    new_values[x,y].concs[0] +=  val1
+                    new_values[x,y].concs[1] += -val1
+                }
+                if new_values[x,y].concs[1] > -val2 && new_values[x,y].concs[2] > val2 {
+                    new_values[x,y].concs[1] +=  val2
+                    new_values[x,y].concs[2] += -val2
+                }
+            }
+            
+        }
+        return new_values
     }
     
 }
