@@ -8,25 +8,24 @@
 
 // TODO
 // How to set an fps that the timer will use, but trouble at defined on init?
-// Speed: add parallelism? add elements of lists efficiently?
-// How to have n colour channels?
+// Speed: add parallelism? add elements of lists efficiently? SIMD
 // SIMD
 // prevent negative colours
 // move some UI as they throttle
-// Saving system
+// Published chemical not working
+//
 
 
 import SwiftUI
 import SwiftData
 
 struct ContentView: View {
-//    @State var simulation = Simulation(height: 200, width: 200, chem_cols: [rgb_for(col: .red), rgb_for(col: .green), rgb_for(col: .blue)])
-    @State var simulation = Simulation(height: 200, width: 200, chem_cols: [rgb_for(col: .cyan), rgb_for(col: .yellow), rgb_for(col: .magenta)])
+    @State var simulation = Simulation(height: 200, width: 200, chem_cols: [rgb_for(col: .red), rgb_for(col: .green), rgb_for(col: .blue)], background_col_enum: .white)
     @StateObject var chemicals = Chemical_eqns()
     
     @State private var location = CGPoint.zero
     
-    @State private var brush_size = 10.0
+    @State private var brush_size = 20.0
     @State private var brush_chem_i_dbl = 0.0
     var brush_chem_i: Int {
         Int(brush_chem_i_dbl)
@@ -103,6 +102,7 @@ struct ContentView: View {
                     // Play/pause simulation button
                     Button {
                         simulation.is_running = !simulation.is_running
+                        is_focused = true
                     } label: {
                         simulation.is_running ? Image(systemName: "pause.fill") : Image(systemName: "play.fill")
                     

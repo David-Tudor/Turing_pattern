@@ -25,7 +25,7 @@ struct Simulation {
     let circle_coords = get_integs_in_quarter_circle(radius: 1)
     var circle_coords_dtodist2: [Double]
     
-    init(height: Int, width: Int, chem_cols: [Colour], dt: Double = 0.1, background_col_enum: Colour_enum = .white) { //, chem_cols: [Colour]
+    init(height: Int, width: Int, chem_cols: [Colour], dt: Double = 0.1, background_col_enum: Colour_enum) {
         self.height = height
         self.width = width
         self.dt = dt
@@ -33,15 +33,18 @@ struct Simulation {
         self.background_col = rgb_for(col: background_col_enum)
         
         self.circle_coords_dtodist2 = circle_coords.map({ xy in
-            return dt/(pow(Double(xy[0]), 2) + pow(Double(xy[1]), 2)) // returns squared distance
+            return dt/(pow(Double(xy[0]), 2) + pow(Double(xy[1]), 2)) // returns dt/(squared distance)
         })
         
-//        let default_cols = [rgb_for(col: .red), rgb_for(col: .green), rgb_for(col: .blue)]
-        let default_cols = [rgb_for(col: .cyan), rgb_for(col: .yellow), rgb_for(col: .magenta)]
-        if chem_cols.count <= 3 {
+        if chem_cols.count <= 3 && background_col_enum == .white { // CYM
+            let default_cols = [rgb_for(col: .cyan), rgb_for(col: .yellow), rgb_for(col: .magenta)]
             self.chem_cols = Array(default_cols[0...chem_cols.count-1])
-            self.is_rgb_not_cym = background_col_enum == .white ? false : true
-        } else {
+            self.is_rgb_not_cym = false
+        } else if chem_cols.count <= 3 && background_col_enum != .white { // RGB
+            let default_cols = [rgb_for(col: .red), rgb_for(col: .green), rgb_for(col: .blue)]
+            self.chem_cols = Array(default_cols[0...chem_cols.count-1])
+            self.is_rgb_not_cym = true
+        } else { // > 3 colours
             self.chem_cols = chem_cols
             self.is_rgb_not_cym = nil
         }
