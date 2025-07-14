@@ -7,20 +7,21 @@
 
 
 // TODO
-// How to set an fps that the timer will use, but trouble at defined on init?
 // Speed: add parallelism? add elements of lists efficiently? SIMD
 // SIMD
 // prevent negative colours
-// move some UI as they throttle
-// Published chemical not working
-//
+
+// How to set an fps that the timer will use, but trouble at defined on init?
+// move some UI as they throttle - is there a View which wouldn't consume memory?
+// Published chemical not working - works for its own view, just not for Simulation - mix of struct and View with a weird lifetime?
+// in Equation_view, local rate_str_list not init'd onAppear before view crashes (so currently hardcoded)
 
 
 import SwiftUI
 import SwiftData
 
 struct ContentView: View {
-    @State var simulation = Simulation(height: 200, width: 200, chem_cols: [rgb_for(col: .red), rgb_for(col: .green), rgb_for(col: .blue)], background_col_enum: .white)
+    @State var simulation = Simulation(height: 200, width: 200, chem_cols: [rgb_for(col: .red), rgb_for(col: .green), rgb_for(col: .blue)], background_col_enum: .black)
     @StateObject var chemicals = Chemical_eqns()
     
     @State private var location = CGPoint.zero
@@ -58,10 +59,7 @@ struct ContentView: View {
                     let is_chem = !(brush_chem_i == simulation.chem_cols.count)
                     Text("Brush: \(is_chem ? "chemical" : "sponge")")
                     let rgb = is_chem ? simulation.chem_cols[brush_chem_i] : simulation.background_col // sponge not chemical if false
-                    
-                    Rectangle()
-                        .frame(width: CGFloat(10), height: CGFloat(10))
-                        .foregroundColor(Color(red: Double(rgb[0])/255, green: Double(rgb[1])/255, blue: Double(rgb[2])/255))
+                    Coloured_square(size: CGFloat(10), rgb: rgb)
 
                 }
                 Slider(value: $brush_chem_i_dbl, in: 0...Double(simulation.chem_cols.count), step: 1)
@@ -70,6 +68,7 @@ struct ContentView: View {
                 
                 // Chemical equations
                 Equation_view()
+                Colour_selection_view()
                 
                 Spacer()
             }

@@ -23,15 +23,18 @@ class Chemical_eqns: ObservableObject {
             for c in str {
                 if c.isLetter { // add character to memory
                     mem += String(c)
-                } else if mem != "" && !chems.contains(mem) { // chemical finished, try apppend it
-                    chems.append(mem)
+                } else if !mem.isEmpty { // chemical finished, try apppend it
+                    if !chems.contains(mem) { chems.append(mem) }
                     mem = ""
                 }
             }
+            if !mem.isEmpty && !chems.contains(mem) { chems.append(mem) }
+            mem = ""
         }
     }
     
     func update_chem_cols() {
+        // xxx todo will need changing since we have colour picker.
         switch chem_cols.count {
         case 0: chem_cols = []
         case 1: chem_cols = [rgb_for(col: .blue)]
@@ -39,12 +42,41 @@ class Chemical_eqns: ObservableObject {
         case 3: chem_cols = [rgb_for(col: .blue), rgb_for(col: .red), rgb_for(col: .green)]
         default:
             chem_cols = []
-            print("CURRENTLY 3 COLS AVAILABLE") // XXX todo
+            print("CURRENTLY 3 COLS AVAILABLE")
         }
     }
     
     func update_eqns_valid() {
-        are_equations_valid = [Bool](repeating: true, count: equation_list.count) // XXX todo
+        var b: Bool
+        var got_arrow: Bool
+        var state: Eqn_state
+        var new_arr: [Bool] = []
+        for eqn in equation_list {
+            b = true
+            got_arrow = false
+            state = .neutral
+            for c in eqn {
+                if c.isWhitespace { continue }
+                // for different state, check then next character is allowable, else give b=false
+                switch state {
+                case .neutral:
+                    if c.isLetter { state = .chem }
+                    else if c.isNumber { state = .neutral }
+                    else { b = false }
+                case .arrow:
+                    if c == ">" { state = .neutral }
+                    else { b = false }
+                case .chem:
+                    if c == "-" { state = .arrow; got_arrow = true }
+                    else if c == "+" { state = .neutral }
+                    else if c.isLetter { state = .chem }
+                    else { b = false }
+                }
+            }
+            if state != .chem || got_arrow == false { b = false } // eqn must end with a chem and contain an arrow
+            new_arr.append(b) // todo, could allow A -> nothing etc.
+        }
+        are_equations_valid = new_arr
     }
     
     func update_all() {
@@ -53,104 +85,55 @@ class Chemical_eqns: ObservableObject {
         update_eqns_valid()
     }
     
-}
-
-
-struct Equation_view: View {
-    @EnvironmentObject var chemicals: Chemical_eqns
-    
-//    @State var rate_str_list: [[String]] = []
-    @State var rate_str_list = [[String]].init(repeating: ["0.0", "0.0"], count: 2) // XXX TODO, make the 2 depend on chemicals.equation_list.count, would like this to be optional
-    
-    
-    let eqn_field_length: CGFloat = 150
-    let eqn_length: CGFloat = 300
-    
-    func rate_list_to_str() -> [[String]] {
-        var ans: [[String]] = []
-        for kpm in chemicals.rate_list {
-            ans.append([kpm[0].description, kpm[1].description])
+    func make_time_stepped_reactions() -> [ ([Double]) -> Double] {
+        var data: Dictionary<String, Int> = [:] // keys: "<l or r><eqn #>_<chem name>"
+        var ans: [ ([Double]) -> Double] = []
+        for (i, eqn) in equation_list.enumerated() {
+            let eqn_sides = eqn.replacingOccurrences(of: " ", with: "").split(separator: "z->")
+            var lhs_dict = parse_eqn_side_to_dict(side_str: String(eqn_sides[0]), side: "l", i: i)
+            let rhs_dict = parse_eqn_side_to_dict(side_str: String(eqn_sides[1]), side: "r", i: i)
+            data.merge(lhs_dict) { (current, _) in current }
+            data.merge(rhs_dict) { (current, _) in current }
         }
+        
+        for chem_i in 0..<chems.count {
+            var f: ([Double]) -> Double
+            
+//            ans.append(f)
+        }
+        
         return ans
     }
     
-    var body: some View {
-        VStack(alignment: .leading) {
-            HStack {
-                Button(action: {
-                    _ = chemicals.equation_list.popLast()
-                    _ = chemicals.rate_list.popLast()
-                    _ = rate_str_list.popLast()
-                    chemicals.update_all()
-                }, label: {Image(systemName: "minus")})
-                
-                Button(action: {
-                    chemicals.equation_list.append("")
-                    chemicals.rate_list.append([0.0, 0.0])
-                    rate_str_list.append(["0.0", "0.0"]) // TODO, better to have optional string and init to nil.
-                    chemicals.update_all()
-                }, label: {Image(systemName: "plus")})
-                
-                Button("Enter rates") {
-                    // string list sets Doubles in chemical.rate_list, or reverts if bad input.
-                    for i in 0..<rate_str_list.count {
-                        for j in 0...1 {
-                            guard let d = Double(rate_str_list[i][j]) else {
-                                rate_str_list[i][j] = chemicals.rate_list[i][j].description // revert string
-                                return
-                            }
-                            chemicals.rate_list[i][j] = d
-                        }
-                    }
-                }
-            }
-            .padding(.bottom, 10)
+//    func f(args: [[]]) {
+//
+//    }
+    
+    func parse_eqn_side_to_dict(side_str: String, side: String, i: Int) -> Dictionary<String, Int> {
+        var dict: Dictionary<String, Int> = [:]
+        
+        for elems in side_str.split(separator: "+") {
+            let my_chem = elems.filter({$0.isLetter})
+            let coeff = Int(elems.filter({$0.isNumber})) ?? 1
+            print("in side parser, chem, coeff are \(my_chem), \(coeff) <- from \(elems.filter({$0.isNumber}))")
+            let key = get_dict_key(side: side, i: i, chem: my_chem)
+            if let val = dict[key] {
+                dict[key] = val + coeff
+            } else { dict[key] = coeff }
             
-            ForEach(0..<chemicals.equation_list.count, id: \.self) { i in
-                HStack {
-                    TextField("Equation", text: $chemicals.equation_list[i])
-                        .frame(width: eqn_field_length)
-                    Image(systemName: chemicals.are_equations_valid[i] ? "checkmark" : "xmark")
-                    Spacer()
-                    HStack {
-                        TextField("k₊", text: $rate_str_list[i][0])
-                        TextField("k₋", text: $rate_str_list[i][1])
-                    }
-                }
-            }
         }
-        .frame(width: 250)
-        .padding(.vertical, 30)
-        .onChange(of: chemicals.equation_list) { oldValue, newValue in
-            chemicals.update_all()
-        }
-        .onAppear {
-            rate_str_list = rate_list_to_str()
-        }
+        return dict
     }
+    
+    func get_dict_key(side: String, i: Int, chem: String) -> String {
+        "\(side)\(i)_\(chem)"
+    }
+    
 }
 
-//
-//struct Colour_selection: View {
-//    @EnvironmentObject var chemicals: Chemical_eqns
-//    
-//    var body: some View {
-//        VStack(alignment: .leading) {
-//            Text("Colour selection")
-//            
-//            ForEach(0..<chemicals.chems.count, id: \.self) { i in
-//                HStack {
-//                    TextField("Equation", text: $chemicals.equation_list[i])
-//                    Image(systemName: chemicals.are_equations_valid[i] ? "checkmark" : "xmark")
-//                    TextField("k₊", text: $chemicals.rates_list[i][0])
-//                    TextField("k₋", text: $chemicals.rates_list[i][1])
-//                }
-//            }
-//        }
-//        .frame(width: 250)
-//        .padding(.vertical, 30)
-//        .onChange(of: chemicals.equation_list) { oldValue, newValue in
-//            chemicals.update_all()
-//        }
-//    }
-//}
+enum Eqn_state { // used for checking an inputed chemical equation is valid.
+    case chem
+    case arrow
+    case neutral // can be number or letter
+}
+

@@ -10,6 +10,7 @@
 import Foundation
 import Cocoa
 import UniformTypeIdentifiers
+import SwiftUI
 
 extension CGImage
 {
@@ -109,3 +110,18 @@ func make_PixelData(rgb: Colour) -> PixelData {
     return PixelData(a: 255, r: UInt8(rgb[0]), g: UInt8(rgb[1]), b: UInt8(rgb[2]))
 }
 
+struct Coloured_square: View {
+    let size: CGFloat
+    let rgb: Colour
+    
+    init(size: CGFloat, rgb: Colour) {
+        self.size = size
+        self.rgb = rgb
+    }
+    
+    var body: some View {
+        Rectangle()
+            .frame(width: size, height: size)
+            .foregroundColor(Color(red: Double(rgb[0])/255, green: Double(rgb[1])/255, blue: Double(rgb[2])/255))
+    }
+}

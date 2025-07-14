@@ -144,11 +144,6 @@ struct Simulation {
         }
         values = new_values
         values = reaction()
-        
-        //        values = fast_laplacian()
-        
-        // make a colour mode for gradients
-        // circular diffusion
     }
     
     func laplacian(_ x: Int, _ y: Int) -> [Double] {
@@ -157,30 +152,12 @@ struct Simulation {
         if (x != 0) && (y != 0) && (x != width-1) && (y != height-1) {
             for i in 0..<chem_cols.count { // XXX needs efficiency
                 ans[i] = values[x-1,y].concs[i] + values[x+1,y].concs[i] + values[x,y-1].concs[i] + values[x,y+1].concs[i] - 4 * values[x,y].concs[i]
+                // following for diags:
+                + (values[x-1,y-1].concs[i] + values[x+1,y+1].concs[i] + values[x+1,y-1].concs[i] + values[x-1,y+1].concs[i] - 4 * values[x,y].concs[i])*0.5
             }
             
         }
         return ans
-    }
-    
-    func fast_laplacian() -> Grid {
-        var new_values = values
-        var diff = 0.0
-        
-        for i in 0..<chem_cols.count {
-            for x in 0 ..< width {
-                for y in 0 ..< height {
-                    for (j, xy1) in circle_coords.enumerated() {
-                        if is_point_valid(x+xy1[0],y+xy1[1]) {
-                            diff = (values[x+xy1[0],y+xy1[1]].concs[i] - values[x,y].concs[i]) * circle_coords_dtodist2[j]
-                            new_values[x,y].concs[i] += diff
-                            new_values[x+xy1[0],y+xy1[1]].concs[i] -= diff
-                        }
-                    }
-                }
-            }
-        }
-        return new_values
     }
     
     func reaction() -> Grid {
@@ -234,3 +211,25 @@ struct Cell {
     var concs: [Double]
 }
 
+
+
+// (SLOWER...)
+//func fast_laplacian() -> Grid {
+//    var new_values = values
+//    var diff = 0.0
+//    
+//    for i in 0..<chem_cols.count {
+//        for x in 0 ..< width {
+//            for y in 0 ..< height {
+//                for (j, xy1) in circle_coords.enumerated() {
+//                    if is_point_valid(x+xy1[0],y+xy1[1]) {
+//                        diff = (values[x+xy1[0],y+xy1[1]].concs[i] - values[x,y].concs[i]) * circle_coords_dtodist2[j]
+//                        new_values[x,y].concs[i] += diff
+//                        new_values[x+xy1[0],y+xy1[1]].concs[i] -= diff
+//                    }
+//                }
+//            }
+//        }
+//    }
+//    return new_values
+//}
