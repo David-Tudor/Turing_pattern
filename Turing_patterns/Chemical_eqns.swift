@@ -86,12 +86,12 @@ class Chemical_eqns: ObservableObject {
     }
     
     func make_time_stepped_reactions() -> [ ([Double]) -> Double] {
-        var data: Dictionary<String, Int> = [:] // keys: "<l or r><eqn #>_<chem name>"
+        var data: Dictionary<String, Int> = [:] // dict key format: "<l or r><eqn #>_<chem name>"
         var ans: [ ([Double]) -> Double] = []
         for (i, eqn) in equation_list.enumerated() {
             let eqn_sides = eqn.replacingOccurrences(of: " ", with: "").split(separator: "z->")
             var lhs_dict = parse_eqn_side_to_dict(side_str: String(eqn_sides[0]), side: "l", i: i)
-            let rhs_dict = parse_eqn_side_to_dict(side_str: String(eqn_sides[1]), side: "r", i: i)
+            let rhs_dict = parse_eqn_side_to_dict(side_str: String(eqn_sides[1]), side: "r", i: i)// MOVE INTO SINGLE FUNC CALL
             data.merge(lhs_dict) { (current, _) in current }
             data.merge(rhs_dict) { (current, _) in current }
         }
@@ -114,7 +114,7 @@ class Chemical_eqns: ObservableObject {
         
         for elems in side_str.split(separator: "+") {
             let my_chem = elems.filter({$0.isLetter})
-            let coeff = Int(elems.filter({$0.isNumber})) ?? 1
+            let coeff = Int(elems.filter({$0.isNumber})) ?? 1 // omitted coeff means a 1.
             print("in side parser, chem, coeff are \(my_chem), \(coeff) <- from \(elems.filter({$0.isNumber}))")
             let key = get_dict_key(side: side, i: i, chem: my_chem)
             if let val = dict[key] {

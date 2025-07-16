@@ -10,11 +10,12 @@
 // Speed: add parallelism? add elements of lists efficiently? SIMD
 // SIMD
 // prevent negative colours
+// make diffusion act fast - higher fps?
 
-// How to set an fps that the timer will use, but trouble at defined on init?
-// move some UI as they throttle - is there a View which wouldn't consume memory?
-// Published chemical not working - works for its own view, just not for Simulation - mix of struct and View with a weird lifetime?
-// in Equation_view, local rate_str_list not init'd onAppear before view crashes (so currently hardcoded)
+// 1 Published chemical not working - works for its own view, just not for Simulation - mix of struct and View with a weird lifetime?
+// 2 (ask) move some UI as they throttle - is there a View which wouldn't consume memory?
+// 3 in Equation_view, local rate_str_list not init'd onAppear before view crashes (so currently hardcoded)
+// 4 How to set an fps that the timer will use, but trouble at defined on init?
 
 
 import SwiftUI

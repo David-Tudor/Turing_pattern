@@ -132,12 +132,14 @@ struct Simulation {
         let zeros = [Double](repeating: 0.0, count: chem_cols.count)
         var new_values = values
         var lap = zeros
+        let D: Double = 2
+        let Ddt = D * dt
         
         for x in 0 ..< width {
             for y in 0 ..< height {
                 lap = laplacian(x, y) // TODO check for negatives
                 for i in 0..<chem_cols.count { // use map?
-                    new_values[x,y].concs[i] += lap[i] * dt
+                    new_values[x,y].concs[i] += lap[i] * Ddt
                 }
                 
             }
@@ -151,17 +153,20 @@ struct Simulation {
         var ans = [Double](repeating: 0.0, count: chem_cols.count)
         if (x != 0) && (y != 0) && (x != width-1) && (y != height-1) {
             for i in 0..<chem_cols.count { // XXX needs efficiency
-                ans[i] = values[x-1,y].concs[i] + values[x+1,y].concs[i] + values[x,y-1].concs[i] + values[x,y+1].concs[i] - 4 * values[x,y].concs[i]
-                // following for diags:
-                + (values[x-1,y-1].concs[i] + values[x+1,y+1].concs[i] + values[x+1,y-1].concs[i] + values[x-1,y+1].concs[i] - 4 * values[x,y].concs[i])*0.5
+//                ans[i] = values[x-1,y].concs[i] + values[x+1,y].concs[i] + values[x,y-1].concs[i] + values[x,y+1].concs[i] - 4 * values[x,y].concs[i]
+                
+                // kernel https://math.stackexchange.com/questions/3464125/how-was-the-2d-discrete-laplacian-matrix-calculated
+                ans[i] = 0.1666 * ( 4 * (values[x-1,y].concs[i] + values[x+1,y].concs[i] + values[x,y-1].concs[i] + values[x,y+1].concs[i])
+                                 + (values[x-1,y-1].concs[i] + values[x+1,y+1].concs[i] + values[x+1,y-1].concs[i] + values[x-1,y+1].concs[i])
+                                 - 20 * values[x,y].concs[i] )
             }
-            
         }
         return ans
     }
     
     func reaction() -> Grid {
-        let rates = [1.0, 0.1, 0.4]
+//        let rates = [1.0, 0.1, 0.4]
+        let rates = [1.0, 0.05, 0.2]
         func expr1(_ a: Double, _ b: Double, _ p: Double) -> Double { return -rates[0] * a*b*b + rates[1] * pow(b, 3) }
         func expr2(_ a: Double, _ b: Double, _ p: Double) -> Double { return -rates[2] * b }
         var new_values = values
