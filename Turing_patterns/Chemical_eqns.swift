@@ -8,7 +8,6 @@
 import Foundation
 import SwiftUI
 
-
 class Chemical_eqns: ObservableObject {
     @Published var equation_list: [String] = ["A + 2B -> 3B", "B -> P"]
     @Published var rate_list: [[Double]] = [[1.0, 0.1], [0.4, 0.0]]

@@ -21,6 +21,7 @@ struct Simulation {
     let background_col: Colour // if .white, cym used, else rgb or specified colours
     let dt: Double
     let is_rgb_not_cym: Bool? // true=rgb, false=cym, nil=too many chems
+//    var chemicals: Chemical_eqns
     
     let circle_coords = get_integs_in_quarter_circle(radius: 1)
     var circle_coords_dtodist2: [Double]
@@ -77,6 +78,7 @@ struct Simulation {
     }
     
     func concs_to_colours(concs: [Double]) -> Colour {
+        // returns a rgb or cym Colour. concs of different chemicals change independent channels (so assumes <= 3 concs)
         // assumes 3 or fewer concs, else force unwrap of is_rgb_not_cym will fail.
         var c = 0.0
         
