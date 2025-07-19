@@ -12,7 +12,7 @@ struct Equation_view: View {
     @EnvironmentObject var chemicals: Chemical_eqns
     
 //    @State var rate_str_list: [[String]] = []
-    @State var rate_str_list = [[String]].init(repeating: ["0.0", "0.0"], count: 2) // XXX TODO, make the 2 depend on chemicals.equation_list.count, would like this to be optional
+    @State var rate_str_list = [[String]].init(repeating: ["0.0", "0.0"], count: 2)
     
     
     let eqn_field_length: CGFloat = 150
@@ -74,6 +74,10 @@ struct Equation_view: View {
                     }
                 }
             }
+            .onAppear {
+                rate_str_list = [[String]].init(repeating: ["0.0", "0.0"], count: chemicals.equation_list.count)
+//                rate_str_list = rate_list_to_str()
+            }
         }
         .frame(width: 250)
         .padding(.vertical, 30)
@@ -81,6 +85,7 @@ struct Equation_view: View {
             chemicals.update_all()
         }
         .onAppear {
+//            rate_str_list = [[String]].init(repeating: ["0.0", "0.0"], count: chemicals.equation_list.count)
             rate_str_list = rate_list_to_str()
         }
     }

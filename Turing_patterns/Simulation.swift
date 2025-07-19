@@ -12,33 +12,26 @@ import simd
 
 
 struct Simulation {
-    //    @EnvironmentObject var chemicals: Chemical_eqns
     let height: Int
     let width: Int
     let chem_cols: [Colour] // overwritten with cym if <=3 colours
     var values: Grid
     var is_running = false
-    let background_col: Colour // if .white, cym used, else rgb or specified colours
+    var background_col: Colour // if white (255,...), cym used, else rgb or specified colours
     let dt: Double
     let is_rgb_not_cym: Bool? // true=rgb, false=cym, nil=too many chems
-//    var chemicals: Chemical_eqns
     
-    let circle_coords = get_integs_in_quarter_circle(radius: 1)
-    var circle_coords_dtodist2: [Double]
     
-    init(height: Int, width: Int, chem_cols: [Colour], dt: Double = 0.1, background_col_enum: Colour_enum) {
+    init(height: Int, width: Int, chem_cols: [Colour], dt: Double, background_col_enum: Colour_enum) {
         self.height = height
         self.width = width
         self.dt = dt
         self.values = Grid(height: height, width: width, num_chems: chem_cols.count)
         self.background_col = rgb_for(col: background_col_enum)
         
-        self.circle_coords_dtodist2 = circle_coords.map({ xy in
-            return dt/(pow(Double(xy[0]), 2) + pow(Double(xy[1]), 2)) // returns dt/(squared distance)
-        })
         
         if chem_cols.count <= 3 && background_col_enum == .white { // CYM
-            let default_cols = [rgb_for(col: .cyan), rgb_for(col: .yellow), rgb_for(col: .magenta)]
+            let default_cols = [rgb_for(col: .cyan), rgb_for(col: .yellow), rgb_for(col: .magenta)] // TODO MOVE LOGIC TO CHEMICALS
             self.chem_cols = Array(default_cols[0...chem_cols.count-1])
             self.is_rgb_not_cym = false
         } else if chem_cols.count <= 3 && background_col_enum != .white { // RGB
@@ -154,9 +147,7 @@ struct Simulation {
         // using h = 1
         var ans = [Double](repeating: 0.0, count: chem_cols.count)
         if (x != 0) && (y != 0) && (x != width-1) && (y != height-1) {
-            for i in 0..<chem_cols.count { // XXX needs efficiency
-//                ans[i] = values[x-1,y].concs[i] + values[x+1,y].concs[i] + values[x,y-1].concs[i] + values[x,y+1].concs[i] - 4 * values[x,y].concs[i]
-                
+            for i in 0..<chem_cols.count {
                 // kernel https://math.stackexchange.com/questions/3464125/how-was-the-2d-discrete-laplacian-matrix-calculated
                 ans[i] = 0.1666 * ( 4 * (values[x-1,y].concs[i] + values[x+1,y].concs[i] + values[x,y-1].concs[i] + values[x,y+1].concs[i])
                                  + (values[x-1,y-1].concs[i] + values[x+1,y+1].concs[i] + values[x+1,y-1].concs[i] + values[x-1,y+1].concs[i])
@@ -217,26 +208,3 @@ struct Grid {
 struct Cell {
     var concs: [Double]
 }
-
-
-
-// (SLOWER...)
-//func fast_laplacian() -> Grid {
-//    var new_values = values
-//    var diff = 0.0
-//    
-//    for i in 0..<chem_cols.count {
-//        for x in 0 ..< width {
-//            for y in 0 ..< height {
-//                for (j, xy1) in circle_coords.enumerated() {
-//                    if is_point_valid(x+xy1[0],y+xy1[1]) {
-//                        diff = (values[x+xy1[0],y+xy1[1]].concs[i] - values[x,y].concs[i]) * circle_coords_dtodist2[j]
-//                        new_values[x,y].concs[i] += diff
-//                        new_values[x+xy1[0],y+xy1[1]].concs[i] -= diff
-//                    }
-//                }
-//            }
-//        }
-//    }
-//    return new_values
-//}

@@ -14,6 +14,7 @@ class Chemical_eqns: ObservableObject {
     @Published var are_equations_valid: [Bool] = [true, true]
     @Published var chems: [String] = ["A", "B", "P"]
     @Published var chem_cols: [Colour] = [rgb_for(col: .blue), rgb_for(col: .red), rgb_for(col: .green)]
+    @Published var background_col_enum: Colour_enum = .black
     
     func update_chems() {
         chems = []
@@ -36,9 +37,9 @@ class Chemical_eqns: ObservableObject {
         // xxx todo will need changing since we have colour picker.
         switch chem_cols.count {
         case 0: chem_cols = []
-        case 1: chem_cols = [rgb_for(col: .blue)]
-        case 2: chem_cols = [rgb_for(col: .blue), rgb_for(col: .red)]
-        case 3: chem_cols = [rgb_for(col: .blue), rgb_for(col: .red), rgb_for(col: .green)]
+        case 1: chem_cols = [rgb_for(col: .red)]
+        case 2: chem_cols = [rgb_for(col: .red), rgb_for(col: .green)]
+        case 3: chem_cols = [rgb_for(col: .red), rgb_for(col: .green), rgb_for(col: .blue)]
         default:
             chem_cols = []
             print("CURRENTLY 3 COLS AVAILABLE")
