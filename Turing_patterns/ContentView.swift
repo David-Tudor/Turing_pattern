@@ -13,7 +13,8 @@
 // make chem equations to simulation better
 // make UI better and disables.
 // conc to colour sensitivity
-// make UI not crash with 0 chems
+// ! make UI not crash with 0 chems, add buffer and submission. work out source of truth for when chemicals are up to date
+// why does refresh time = calc time + dt?
 
 // 3 in Equation_view, local rate_str_list not init'd onAppear before view crashes (so currently hardcoded)
 

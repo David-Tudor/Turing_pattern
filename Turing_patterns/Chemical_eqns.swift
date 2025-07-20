@@ -18,6 +18,12 @@ class Chemical_eqns: ObservableObject {
     @Published var background_col_enum: Colour_enum = .black
     @Published var is_sim_running = false
     
+    var are_all_equations_valid: Bool {
+        are_equations_valid.reduce(true) { partialResult, b in
+            return partialResult && b
+        }
+    }
+    
     func update_chems() {
         chems = []
         var mem = ""
@@ -49,34 +55,12 @@ class Chemical_eqns: ObservableObject {
     }
     
     func update_eqns_valid() {
-        var b: Bool
-        var got_arrow: Bool
-        var state: Eqn_state
+        let eqn_regex = /(?i)^\s*(((\d*[a-z]+)\s*\+\s*)*(\d*[a-z]+))\s*->\s*(((\d*[a-z]+)\s*\+\s*)*(\d*[a-z]+))\s*$/
         var new_arr: [Bool] = []
         for eqn in equation_list {
-            b = true
-            got_arrow = false
-            state = .neutral
-            for c in eqn {
-                if c.isWhitespace { continue }
-                // for different state, check then next character is allowable, else give b=false
-                switch state {
-                case .neutral:
-                    if c.isLetter { state = .chem }
-                    else if c.isNumber { state = .neutral }
-                    else { b = false }
-                case .arrow:
-                    if c == ">" { state = .neutral }
-                    else { b = false }
-                case .chem:
-                    if c == "-" { state = .arrow; got_arrow = true }
-                    else if c == "+" { state = .neutral }
-                    else if c.isLetter { state = .chem }
-                    else { b = false }
-                }
-            }
-            if state != .chem || got_arrow == false { b = false } // eqn must end with a chem and contain an arrow
-            new_arr.append(b) // todo, could allow A -> nothing etc.
+            if let _ = try? eqn_regex.wholeMatch(in: eqn) {
+                new_arr.append(true)
+            } else { new_arr.append(false) }
         }
         are_equations_valid = new_arr
     }
@@ -131,11 +115,5 @@ class Chemical_eqns: ObservableObject {
         "\(side)\(i)_\(chem)"
     }
     
-}
-
-enum Eqn_state { // used for checking an inputed chemical equation is valid.
-    case chem
-    case arrow
-    case neutral // can be number or letter
 }
 
