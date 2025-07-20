@@ -13,17 +13,59 @@ struct Equation_view: View {
     
     @State var rate_str_list = [[String]].init(repeating: ["0.0", "0.0"], count: 2)
     @State var eqn_list_local: [String] = []
+    @State var are_equations_valid: [Bool] = [true, true]
+    @State var are_rates_valid: [Bool] = [true, true]
     
     // BEST IF DATA HELD LOCALLY, THEN UPDATE FUNCTIONS CALLED which change chemicals' properties only if new values are valid
     // onChange of local lists, chemicals.eqns_edited = true which should enable a button in contentView and disable the simulate button. Running local update funcs should resest edited to false.
     // Therefore, chemicals always has valid equations and rates.
     
-    
+    // onchange of either, update either validity. publish if all good. if not flip flag in chemicals so warning/disabled results
     
     let eqn_field_length: CGFloat = 150
     let eqn_length: CGFloat = 300
     
-    func rate_list_to_str() -> [[String]] {
+    func update_eqns_valid() {
+        let eqn_regex = /(?i)^\s*(((\d*[a-z]+)\s*\+\s*)*(\d*[a-z]+))\s*->\s*(((\d*[a-z]+)\s*\+\s*)*(\d*[a-z]+))\s*$/
+        for (i, eqn) in eqn_list_local.enumerated() {
+            if let _ = try? eqn_regex.wholeMatch(in: eqn) {
+                are_equations_valid[i] = true
+            } else { are_equations_valid[i] = false }
+        }
+    }
+    
+    func update_rates_valid() {
+        for i in 0..<rate_str_list.count {
+            guard let d0 = Double(rate_str_list[i][0]), let d1 = Double(rate_str_list[i][1]) else {
+                are_rates_valid[i] = false
+                return
+            }
+            if d0 >= 0.0 && d1 >= 0.0 { are_rates_valid[i] = true
+            } else { are_rates_valid[i] = false }
+        }
+    }
+    
+    func enter_eqns_and_rates() {
+        update_eqns_valid()
+        update_rates_valid()
+        
+        if are_equations_valid.contains(false) || are_rates_valid.contains(false) {
+             // do nothing
+        } else {
+            
+            
+            var new_rates = [[Double]].init(repeating: [0.0, 0.0], count: rate_str_list.count)
+            for i in 0..<rate_str_list.count {
+                new_rates[i] = [Double(rate_str_list[i][0]) ?? 0.0,Double(rate_str_list[i][1]) ?? 0.0]
+            }
+            chemicals.equation_list = eqn_list_local
+            chemicals.rate_list = new_rates
+            
+            chemicals.are_eqns_up_to_date = true
+        }
+    }
+    
+    func rate_list_to_strs() -> [[String]] {
         var ans: [[String]] = []
         for kpm in chemicals.rate_list {
             ans.append([kpm[0].description, kpm[1].description])
@@ -31,80 +73,63 @@ struct Equation_view: View {
         return ans
     }
     
-    func enter_rates() {
-        for i in 0..<rate_str_list.count {
-            for j in 0...1 {
-                guard let d = Double(rate_str_list[i][j]) else {
-                    rate_str_list[i][j] = chemicals.rate_list[i][j].description // revert string
-                    return
-                }
-                chemicals.rate_list[i][j] = d
-            }
-        }
-    }
-    
-    func enter_eqns() {
-        // TODO
-        for i in 0..<rate_str_list.count {
-            for j in 0...1 {
-                guard let d = Double(rate_str_list[i][j]) else {
-                    rate_str_list[i][j] = chemicals.rate_list[i][j].description // revert string
-                    return
-                }
-                chemicals.rate_list[i][j] = d
-            }
-        }
-    }
     
     var body: some View {
         VStack(alignment: .leading) {
             HStack {
                 Button(action: {
-                    _ = chemicals.equation_list.popLast()
-                    _ = chemicals.rate_list.popLast()
+                    _ = eqn_list_local.popLast()
                     _ = rate_str_list.popLast()
-                    chemicals.update_all()
+                    _ = are_equations_valid.popLast()
+                    _ = are_rates_valid.popLast()
                 }, label: {Image(systemName: "minus")})
-                .disabled(chemicals.equation_list.count == 1)
+                .disabled(eqn_list_local.count == 1)
                 
                 Button(action: {
-                    chemicals.equation_list.append("")
-                    chemicals.rate_list.append([0.0, 0.0])
-                    rate_str_list.append(["0.0", "0.0"]) // TODO, better to have optional string and init to nil.
-                    chemicals.update_all()
+                    eqn_list_local.append("")
+                    rate_str_list.append(["0.0", "0.0"])
+                    are_equations_valid.append(false)
+                    are_rates_valid.append(true)
                 }, label: {Image(systemName: "plus")})
-                
-                
             }
             .padding(.bottom, 10)
             
-            ForEach(0..<chemicals.equation_list.count, id: \.self) { i in
+            ForEach(0..<eqn_list_local.count, id: \.self) { i in
                 HStack {
-                    TextField("Equation", text: $chemicals.equation_list[i])
+                    TextField("Equation", text: $eqn_list_local[i])
                         .frame(width: eqn_field_length)
-                    Image(systemName: chemicals.are_equations_valid[i] ? "checkmark" : "xmark")
+                    Image(systemName: are_equations_valid[i] ? "checkmark" : "xmark")
                         .foregroundColor(chemicals.is_sim_running ? .gray : .primary)
                         .opacity(chemicals.is_sim_running ? 0.6 : 1.0)
                     Spacer()
                     HStack {
                         TextField("k₊", text: $rate_str_list[i][0])
                         TextField("k₋", text: $rate_str_list[i][1])
+                        Image(systemName: are_rates_valid[i] ? "checkmark" : "xmark")
+                            .foregroundColor(chemicals.is_sim_running ? .gray : .primary)
+                            .opacity(chemicals.is_sim_running ? 0.6 : 1.0)
                     }
                 }
             }
-
+            
+            
             Button("Enter equations") {
-                // string list sets Doubles in chemical.rate_list, or reverts if bad input.
-                enter_rates()
+                enter_eqns_and_rates()
             }
+            .padding(.top, 15)
         }
-        .frame(width: 250)
+        .frame(width: 300)
         .padding(.vertical, 30)
-        .onChange(of: chemicals.equation_list) { oldValue, newValue in
-            chemicals.update_all()
-        }
+        .onChange(of: eqn_list_local, { _, _ in
+            chemicals.are_eqns_up_to_date = false
+            update_eqns_valid()
+        })
+        .onChange(of: rate_str_list, { _, _ in
+            chemicals.are_eqns_up_to_date = false
+            update_rates_valid()
+        })
         .onAppear {
-            rate_str_list = rate_list_to_str()
+            rate_str_list = rate_list_to_strs()
             eqn_list_local = chemicals.equation_list
         }
     }

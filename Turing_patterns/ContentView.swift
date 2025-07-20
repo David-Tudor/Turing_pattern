@@ -11,10 +11,10 @@
 // make permanent chem sources?
 // SIMD early-ish - or try map, research convolution, design both as rgb <= 3 <= 4
 // make chem equations to simulation better
-// make UI better and disables.
 // conc to colour sensitivity
-// ! make UI not crash with 0 chems, add buffer and submission. work out source of truth for when chemicals are up to date
 // why does refresh time = calc time + dt?
+
+// NEXT make new eqn source work and update properly, colour picker
 
 // 3 in Equation_view, local rate_str_list not init'd onAppear before view crashes (so currently hardcoded)
 

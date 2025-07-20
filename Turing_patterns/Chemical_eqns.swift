@@ -11,18 +11,12 @@ import SwiftUI
 class Chemical_eqns: ObservableObject {
     @Published var equation_list: [String] = ["A + 2B -> 3B", "B -> P"]
     @Published var rate_list: [[Double]] = [[1.0, 0.1], [0.4, 0.0]]
-    @Published var are_equations_valid: [Bool] = [true, true]
     @Published var chems: [String] = ["A", "B", "P"]
-    @Published var chem_cols: [Colour] = [rgb_for(col: .blue), rgb_for(col: .red), rgb_for(col: .green)]
+    @Published var chem_cols: [Colour] = [rgb_for(col: .red), rgb_for(col: .green), rgb_for(col: .blue)]
     @Published var chem_cols_picker: [Colour] = []
     @Published var background_col_enum: Colour_enum = .black
     @Published var is_sim_running = false
-    
-    var are_all_equations_valid: Bool {
-        are_equations_valid.reduce(true) { partialResult, b in
-            return partialResult && b
-        }
-    }
+    @Published var are_eqns_up_to_date = true
     
     func update_chems() {
         chems = []
@@ -54,21 +48,10 @@ class Chemical_eqns: ObservableObject {
         
     }
     
-    func update_eqns_valid() {
-        let eqn_regex = /(?i)^\s*(((\d*[a-z]+)\s*\+\s*)*(\d*[a-z]+))\s*->\s*(((\d*[a-z]+)\s*\+\s*)*(\d*[a-z]+))\s*$/
-        var new_arr: [Bool] = []
-        for eqn in equation_list {
-            if let _ = try? eqn_regex.wholeMatch(in: eqn) {
-                new_arr.append(true)
-            } else { new_arr.append(false) }
-        }
-        are_equations_valid = new_arr
-    }
     
     func update_all() {
         update_chems()
         update_chem_cols()
-        update_eqns_valid()
     }
     
     func make_time_stepped_reactions() -> [ ([Double]) -> Double] {
