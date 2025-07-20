@@ -67,6 +67,8 @@ struct Equation_view: View {
                     TextField("Equation", text: $chemicals.equation_list[i])
                         .frame(width: eqn_field_length)
                     Image(systemName: chemicals.are_equations_valid[i] ? "checkmark" : "xmark")
+                        .foregroundColor(chemicals.is_sim_running ? .gray : .primary)
+                        .opacity(chemicals.is_sim_running ? 0.6 : 1.0)
                     Spacer()
                     HStack {
                         TextField("k₊", text: $rate_str_list[i][0])
@@ -75,7 +77,7 @@ struct Equation_view: View {
                 }
             }
             .onAppear {
-                rate_str_list = [[String]].init(repeating: ["0.0", "0.0"], count: chemicals.equation_list.count)
+//                rate_str_list = [[String]].init(repeating: ["0.0", "0.0"], count: chemicals.equation_list.count)
 //                rate_str_list = rate_list_to_str()
             }
         }

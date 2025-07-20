@@ -14,12 +14,12 @@ import simd
 struct Simulation {
     let height: Int
     let width: Int
-    let chem_cols: [Colour] // overwritten with cym if <=3 colours
+    var chem_cols: [Colour] // overwritten with cym if <=3 colours
     var values: Grid
     var is_running = false
     var background_col: Colour // if white (255,...), cym used, else rgb or specified colours
-    let dt: Double
-    let is_rgb_not_cym: Bool? // true=rgb, false=cym, nil=too many chems
+    var dt: Double
+    let diffusion_const = 2.0
     
     
     init(height: Int, width: Int, chem_cols: [Colour], dt: Double, background_col_enum: Colour_enum) {
@@ -28,20 +28,8 @@ struct Simulation {
         self.dt = dt
         self.values = Grid(height: height, width: width, num_chems: chem_cols.count)
         self.background_col = rgb_for(col: background_col_enum)
+        self.chem_cols = []
         
-        
-        if chem_cols.count <= 3 && background_col_enum == .white { // CYM
-            let default_cols = [rgb_for(col: .cyan), rgb_for(col: .yellow), rgb_for(col: .magenta)] // TODO MOVE LOGIC TO CHEMICALS
-            self.chem_cols = Array(default_cols[0...chem_cols.count-1])
-            self.is_rgb_not_cym = false
-        } else if chem_cols.count <= 3 && background_col_enum != .white { // RGB
-            let default_cols = [rgb_for(col: .red), rgb_for(col: .green), rgb_for(col: .blue)]
-            self.chem_cols = Array(default_cols[0...chem_cols.count-1])
-            self.is_rgb_not_cym = true
-        } else { // > 3 colours
-            self.chem_cols = chem_cols
-            self.is_rgb_not_cym = nil
-        }
     }
     
     func export_to_view() -> some View {
@@ -72,12 +60,11 @@ struct Simulation {
     
     func concs_to_colours(concs: [Double]) -> Colour {
         // returns a rgb or cym Colour. concs of different chemicals change independent channels (so assumes <= 3 concs)
-        // assumes 3 or fewer concs, else force unwrap of is_rgb_not_cym will fail.
         var c = 0.0
         
         var col: [Int]
         let sign: Int
-        if is_rgb_not_cym! {
+        if (background_col != [255,255,255]) {
             col = [0, 0, 0] // additive colour for rgb
             sign = 1
         } else {
@@ -93,11 +80,11 @@ struct Simulation {
     }
     
     func is_point_valid(_ x: Int, _ y: Int) -> Bool {
-        if x >= 0 && y >= 0 && x < height && y < width {
-            return true
-        } else {
-            return false
-        }
+        x >= 0 && y >= 0 && x < height && y < width
+    }
+    
+    func is_point_edge(_ x: Int, _ y: Int) -> Bool {
+        (x == 0) || (y == 0) || (x == width-1) || (y == height-1)
     }
     
     mutating func clear_values() {
@@ -124,29 +111,35 @@ struct Simulation {
     }
     
     mutating func time_step() {
+
         let zeros = [Double](repeating: 0.0, count: chem_cols.count)
         var new_values = values
         var lap = zeros
-        let D: Double = 2
-        let Ddt = D * dt
+        let Ddt = diffusion_const * dt
         
         for x in 0 ..< width {
             for y in 0 ..< height {
                 lap = laplacian(x, y) // TODO check for negatives
-                for i in 0..<chem_cols.count { // use map?
+                for i in 0..<chem_cols.count {
                     new_values[x,y].concs[i] += lap[i] * Ddt
+                    if new_values[x,y].concs[i] < 0 {
+                        print("WARNING, DIFFUSION WOULD MAKE NEGATIVE \(new_values[x,y].concs[i]-lap[i] * Ddt) + \(lap[i]) * \(Ddt)")
+                        new_values[x,y].concs[i] = 0
+                    }
                 }
-                
             }
         }
         values = new_values
         values = reaction()
+        
     }
+    
+    
     
     func laplacian(_ x: Int, _ y: Int) -> [Double] {
         // using h = 1
         var ans = [Double](repeating: 0.0, count: chem_cols.count)
-        if (x != 0) && (y != 0) && (x != width-1) && (y != height-1) {
+        if !is_point_edge(x,y) {
             for i in 0..<chem_cols.count {
                 // kernel https://math.stackexchange.com/questions/3464125/how-was-the-2d-discrete-laplacian-matrix-calculated
                 ans[i] = 0.1666 * ( 4 * (values[x-1,y].concs[i] + values[x+1,y].concs[i] + values[x,y-1].concs[i] + values[x,y+1].concs[i])

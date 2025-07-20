@@ -13,13 +13,14 @@ struct Simulation_container: View {
     @EnvironmentObject var chemicals: Chemical_eqns
     @State var simulation: Simulation
     @State private var drag_location = CGPoint.zero
+    @State var start_time = Date()
+    @State var end_time = Date()
     
     var drag: some Gesture {
         DragGesture(coordinateSpace: .named("space"))
             .onChanged { info in drag_location = info.location }
     }
     
-//    let timer = Timer.publish(every: TimeInterval(1/10), on: .main, in: .common).autoconnect()
     var timer: Publishers.Autoconnect<Timer.TimerPublisher> {
             Timer.publish(every: dt, on: .main, in: .common).autoconnect()
         }
@@ -31,19 +32,21 @@ struct Simulation_container: View {
     }
     var dt_str: String
     var dt: Double {
-        return Double(dt_str) ?? dt_default
+        let d = Double(dt_str.trimmingCharacters(in: .whitespacesAndNewlines))
+        if d != nil && d! > 0 {
+            return d!
+        } else {
+            return dt_default
+        }
     }
-    
     
     let sim_size = [250, 250]
     let dt_default = 0.1
-    
-    @FocusState private var is_focused: Bool
-    
+
     
     init(drag_location: CoreFoundation.CGPoint = CGPoint.zero, brush_size: Double, brush_chem_i_dbl: Double, background_col_enum: Colour_enum, chem_cols: [Colour], dt_str: String) {
         
-        self.simulation = Simulation(height: sim_size[0], width: sim_size[1], chem_cols: chem_cols, dt: Double(dt_str) ?? dt_default, background_col_enum: background_col_enum)
+        self.simulation = Simulation(height: sim_size[0], width: sim_size[1], chem_cols: chem_cols, dt: 0.1, background_col_enum: background_col_enum)
         self.drag_location = drag_location
         self.brush_size = brush_size
         self.brush_chem_i_dbl = brush_chem_i_dbl
@@ -52,9 +55,7 @@ struct Simulation_container: View {
     
     var body: some View {
         VStack {
-            
-            
-            
+        
             simulation.export_to_view()
                 .coordinateSpace(name: "space")
                 .gesture(drag)
@@ -67,10 +68,19 @@ struct Simulation_container: View {
             // time stepper:
                 .onReceive(timer) { time in
                     if simulation.is_running {
+                        let step_time = Date().timeIntervalSince(start_time)
+                        start_time = Date()
                         simulation.time_step()
-                        simulation.background_col = rgb_for(col: chemicals.background_col_enum)
+                        end_time = Date()
+                        print(String(format: "Time OF step: %.3f || CALCULATE step %.3f", step_time, end_time.timeIntervalSince(start_time)))
                     }
                 }
+            
+            // update simulation properties when they are changed elsewhere
+                .onChange(of: dt, {simulation.dt = dt})
+                .onChange(of: chemicals.background_col_enum, {simulation.background_col = rgb_for(col: chemicals.background_col_enum)})
+                .onChange(of: chemicals.chem_cols, {simulation.chem_cols = chemicals.chem_cols})
+                .onChange(of: chemicals.is_sim_running, {simulation.is_running = chemicals.is_sim_running})
             
             HStack {
                 // Clear simulation button
@@ -80,25 +90,10 @@ struct Simulation_container: View {
                     Image(systemName: "trash.fill")
                 }
                 
-                // Play/pause simulation button
-                Button {
-                    simulation.is_running = !simulation.is_running
-                    is_focused = true
-                } label: {
-                    simulation.is_running ? Image(systemName: "pause.fill") : Image(systemName: "play.fill")
-                
-                }
-                .focusable()
-                .focused($is_focused)
-                .focusEffectDisabled()
-                .onKeyPress(.space) {
-                    simulation.is_running = !simulation.is_running
-                    return .handled
-                }
-                .onAppear {
-                    is_focused = true
-                }
             }
+        }
+        .onAppear {
+            simulation.chem_cols = chemicals.chem_cols
         }
     }
 }

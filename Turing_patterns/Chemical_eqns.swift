@@ -14,7 +14,9 @@ class Chemical_eqns: ObservableObject {
     @Published var are_equations_valid: [Bool] = [true, true]
     @Published var chems: [String] = ["A", "B", "P"]
     @Published var chem_cols: [Colour] = [rgb_for(col: .blue), rgb_for(col: .red), rgb_for(col: .green)]
+    @Published var chem_cols_picker: [Colour] = []
     @Published var background_col_enum: Colour_enum = .black
+    @Published var is_sim_running = false
     
     func update_chems() {
         chems = []
@@ -34,16 +36,16 @@ class Chemical_eqns: ObservableObject {
     }
     
     func update_chem_cols() {
-        // xxx todo will need changing since we have colour picker.
-        switch chem_cols.count {
-        case 0: chem_cols = []
-        case 1: chem_cols = [rgb_for(col: .red)]
-        case 2: chem_cols = [rgb_for(col: .red), rgb_for(col: .green)]
-        case 3: chem_cols = [rgb_for(col: .red), rgb_for(col: .green), rgb_for(col: .blue)]
-        default:
-            chem_cols = []
-            print("CURRENTLY 3 COLS AVAILABLE")
+        if chems.count <= 3 && background_col_enum == .white { // CYM
+            let default_cols = [rgb_for(col: .cyan), rgb_for(col: .yellow), rgb_for(col: .magenta)]
+            self.chem_cols = Array(default_cols[0...chems.count-1])
+        } else if chems.count <= 3 && background_col_enum != .white { // RGB
+            let default_cols = [rgb_for(col: .red), rgb_for(col: .green), rgb_for(col: .blue)]
+            self.chem_cols = Array(default_cols[0...max(chems.count-1, 0)])
+        } else { // > 3 colours so take from colour picker
+            self.chem_cols = chem_cols_picker
         }
+        
     }
     
     func update_eqns_valid() {

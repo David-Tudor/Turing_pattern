@@ -9,9 +9,11 @@
 // prevent negative colours
 // make diffusion act fast - higher fps?
 // make permanent chem sources?
-// how to measure lag?
-// SIMD early-ish
+// SIMD early-ish - or try map, research convolution, design both as rgb <= 3 <= 4
 // make chem equations to simulation better
+// make UI better and disables.
+// conc to colour sensitivity
+// make UI not crash with 0 chems
 
 // 3 in Equation_view, local rate_str_list not init'd onAppear before view crashes (so currently hardcoded)
 
@@ -21,6 +23,7 @@ import SwiftData
 
 struct ContentView: View {
     @StateObject var chemicals = Chemical_eqns()
+    @FocusState private var is_focused: Bool
     
     @State private var brush_size = 20.0
     @State private var brush_chem_i_dbl = 0.0
@@ -28,24 +31,16 @@ struct ContentView: View {
         Int(brush_chem_i_dbl)
     }
     @State private var dt_str = "0.1"
-    var dt: Double {
-        return Double(dt_str) ?? 0.1
-    }
-    
     @State private var is_darkmode = true
+    @State private var is_sim_running_publish_buffer: Bool? // changed on Spacebar pressed, then value given to publisher, then reset to nil
+    
     let slider_length = 250
-    
-    
     
     var body: some View {
         
         HStack {
             
             VStack(alignment: .leading) {
-                Text("Time step (s)")
-                TextField("dt", text: $dt_str)
-                    .frame(width: CGFloat(slider_length))
-                
                 // Slider for brush size
                 Text("Brush size")
                 Slider(value: $brush_size, in: 1...50)
@@ -65,28 +60,61 @@ struct ContentView: View {
                 
                 Divider()
                 
-                Toggle("Dark mode", isOn: $is_darkmode)
-                    .onChange(of: is_darkmode) { oldValue, newValue in
-                        switch newValue {
-                        case true: chemicals.background_col_enum = .black
-                        case false:chemicals.background_col_enum = .white
+                VStack {
+                    // Time step
+                    Text("Time step (s)")
+                        .foregroundColor(chemicals.is_sim_running ? .gray : .primary)
+                        .opacity(chemicals.is_sim_running ? 0.6 : 1.0)
+                    TextField("dt", text: $dt_str)
+                        .frame(width: CGFloat(slider_length))
+                    
+                    // Dark mode
+                    Toggle("Dark mode", isOn: $is_darkmode)
+                        .onChange(of: is_darkmode) { oldValue, newValue in
+                            switch newValue {
+                            case true:  chemicals.background_col_enum = .black
+                            case false: chemicals.background_col_enum = .white
+                            }
+                            chemicals.update_chem_cols()
                         }
-                    }
+                    
+                     
+                    // Chemical equations
+                    Equation_view()
+                    Colour_picker_view()
+                        .foregroundColor(chemicals.is_sim_running ? .gray : .primary)
+                        .opacity(chemicals.is_sim_running ? 0.6 : 1.0)
+                }
+                .disabled(chemicals.is_sim_running)
                 
-                
-                // Chemical equations
-                Equation_view()
-                Colour_selection_view()
-                
+                // Play/pause simulation button
+                Button {
+                    chemicals.is_sim_running = !chemicals.is_sim_running
+                    is_focused = true
+                } label: {
+                    Image(systemName: chemicals.is_sim_running ? "pause.fill" : "play.fill")
+                        .font(.system(size: 40))
+                }
+                .focusable()
+                .focused($is_focused)
+                .focusEffectDisabled()
+                .onKeyPress(.space) {
+                    is_sim_running_publish_buffer = !chemicals.is_sim_running
+                    return .handled
+                }
+                .onAppear {
+                    is_focused = true
+                }
                 
                 Spacer()
             }
+            .onChange(of: is_sim_running_publish_buffer) { oldValue, newValue in
+                guard let new = is_sim_running_publish_buffer else { return }
+                chemicals.is_sim_running = new
+                is_sim_running_publish_buffer = nil
+            }
             
             VStack {
-                
-                Text("background is \(chemicals.background_col_enum)")
-                
-                // TODO xxx how is SIMULATE button going to work
                 Simulation_container(brush_size: brush_size, brush_chem_i_dbl: brush_chem_i_dbl, background_col_enum: chemicals.background_col_enum, chem_cols: chemicals.chem_cols, dt_str: dt_str)
                 
             } // end of 2nd column VStack
