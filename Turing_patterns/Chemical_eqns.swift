@@ -18,6 +18,10 @@ class Chemical_eqns: ObservableObject {
     @Published var is_sim_running = false
     @Published var are_eqns_up_to_date = true
     
+    func toggle_sim_running() {
+        DispatchQueue.main.async { self.is_sim_running = !self.is_sim_running }
+    }
+    
     func update_chems() {
         chems = []
         var mem = ""

@@ -123,7 +123,7 @@ struct Simulation {
                 for i in 0..<chem_cols.count {
                     new_values[x,y].concs[i] += lap[i] * Ddt
                     if new_values[x,y].concs[i] < 0 {
-                        print("WARNING, DIFFUSION WOULD MAKE NEGATIVE \(new_values[x,y].concs[i]-lap[i] * Ddt) + \(lap[i]) * \(Ddt)")
+                        print("WARNING, DIFFUSION WOULD GIVE NEGATIVE \(new_values[x,y].concs[i]-lap[i] * Ddt) + \(lap[i]) * \(Ddt)")
                         new_values[x,y].concs[i] = 0
                     }
                 }

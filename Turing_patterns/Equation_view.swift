@@ -52,8 +52,6 @@ struct Equation_view: View {
         if are_equations_valid.contains(false) || are_rates_valid.contains(false) {
              // do nothing
         } else {
-            
-            
             var new_rates = [[Double]].init(repeating: [0.0, 0.0], count: rate_str_list.count)
             for i in 0..<rate_str_list.count {
                 new_rates[i] = [Double(rate_str_list[i][0]) ?? 0.0,Double(rate_str_list[i][1]) ?? 0.0]

@@ -33,7 +33,6 @@ struct ContentView: View {
     }
     @State private var dt_str = "0.1"
     @State private var is_darkmode = true
-    @State private var is_sim_running_publish_buffer: Bool? // changed on Spacebar pressed, then value given to publisher, then reset to nil
     
     let slider_length = 250
     
@@ -63,11 +62,14 @@ struct ContentView: View {
                 
                 VStack {
                     // Time step
-                    Text("Time step (s)")
-                        .foregroundColor(chemicals.is_sim_running ? .gray : .primary)
-                        .opacity(chemicals.is_sim_running ? 0.6 : 1.0)
-                    TextField("dt", text: $dt_str)
-                        .frame(width: CGFloat(slider_length))
+                    HStack {
+                        Text("Time step")
+                            .foregroundColor(chemicals.is_sim_running ? .gray : .primary)
+                            .opacity(chemicals.is_sim_running ? 0.6 : 1.0)
+                        TextField("dt (secs)", text: $dt_str)
+                            
+                    }
+                    .frame(width: CGFloat(slider_length))
                     
                     // Dark mode
                     Toggle("Dark mode", isOn: $is_darkmode)
@@ -90,7 +92,7 @@ struct ContentView: View {
                 
                 // Play/pause simulation button
                 Button {
-                    chemicals.is_sim_running = !chemicals.is_sim_running
+                    chemicals.toggle_sim_running()
                     is_focused = true
                 } label: {
                     Image(systemName: chemicals.is_sim_running ? "pause.fill" : "play.fill")
@@ -100,7 +102,7 @@ struct ContentView: View {
                 .focused($is_focused)
                 .focusEffectDisabled()
                 .onKeyPress(.space) {
-                    is_sim_running_publish_buffer = !chemicals.is_sim_running
+                    chemicals.toggle_sim_running()
                     return .handled
                 }
                 .onAppear {
@@ -108,11 +110,6 @@ struct ContentView: View {
                 }
                 
                 Spacer()
-            }
-            .onChange(of: is_sim_running_publish_buffer) { oldValue, newValue in
-                guard let new = is_sim_running_publish_buffer else { return }
-                chemicals.is_sim_running = new
-                is_sim_running_publish_buffer = nil
             }
             
             VStack {

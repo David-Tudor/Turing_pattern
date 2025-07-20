@@ -22,7 +22,8 @@ struct Simulation_container: View {
     }
     
     var timer: Publishers.Autoconnect<Timer.TimerPublisher> {
-            Timer.publish(every: dt, on: .main, in: .common).autoconnect()
+//            Timer.publish(every: dt, on: .main, in: .common).autoconnect() //TURNON
+        Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
         }
     
     var brush_size: Double
@@ -77,7 +78,7 @@ struct Simulation_container: View {
                 }
             
             // update simulation properties when they are changed elsewhere
-                .onChange(of: dt, {simulation.dt = dt})
+//                .onChange(of: dt, {simulation.dt = dt}) //TURNON
                 .onChange(of: chemicals.background_col_enum, {simulation.background_col = rgb_for(col: chemicals.background_col_enum)})
                 .onChange(of: chemicals.chem_cols, {simulation.chem_cols = chemicals.chem_cols})
                 .onChange(of: chemicals.is_sim_running, {simulation.is_running = chemicals.is_sim_running})
