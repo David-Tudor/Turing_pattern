@@ -23,70 +23,40 @@ class Chemical_eqns: ObservableObject {
     }
     
     func update_chems() {
-        chems = []
-        var mem = ""
-        for str in equation_list {
-            for c in str {
-                if c.isLetter { // add character to memory
-                    mem += String(c)
-                } else if !mem.isEmpty { // chemical finished, try apppend it
-                    if !chems.contains(mem) { chems.append(mem) }
-                    mem = ""
-                }
-            }
-            if !mem.isEmpty && !chems.contains(mem) { chems.append(mem) }
-            mem = ""
-        }
-        print("Number of chems is \(chems.count)")
+        chems = get_chems_from_eqns(from: equation_list)
     }
 
     func update_all() {
         update_chems()
     }
     
-//    func make_time_stepped_reactions() -> [ ([Double]) -> Double] {
-//        var data: Dictionary<String, Int> = [:] // dict key format: "<l or r><eqn #>_<chem name>"
-//        var ans: [ ([Double]) -> Double] = []
-//        for (i, eqn) in equation_list.enumerated() {
-//            let eqn_sides = eqn.replacingOccurrences(of: " ", with: "").split(separator: "z->")
-//            var lhs_dict = parse_eqn_side_to_dict(side_str: String(eqn_sides[0]), side: "l", i: i)
-//            let rhs_dict = parse_eqn_side_to_dict(side_str: String(eqn_sides[1]), side: "r", i: i)// MOVE INTO SINGLE FUNC CALL
-//            data.merge(lhs_dict) { (current, _) in current }
-//            data.merge(rhs_dict) { (current, _) in current }
-//        }
-//        
-//        for chem_i in 0..<chems.count {
-//            var f: ([Double]) -> Double
-//            
-////            ans.append(f)
-//        }
-//        
-//        return ans
-//    }
-//    
-////    func f(args: [[]]) {
-////
-////    }
-//    
-//    func parse_eqn_side_to_dict(side_str: String, side: String, i: Int) -> Dictionary<String, Int> {
-//        var dict: Dictionary<String, Int> = [:]
-//        
-//        for elems in side_str.split(separator: "+") {
-//            let my_chem = elems.filter({$0.isLetter})
-//            let coeff = Int(elems.filter({$0.isNumber})) ?? 1 // omitted coeff means a 1.
-//            print("in side parser, chem, coeff are \(my_chem), \(coeff) <- from \(elems.filter({$0.isNumber}))")
-//            let key = get_dict_key(side: side, i: i, chem: my_chem)
-//            if let val = dict[key] {
-//                dict[key] = val + coeff
-//            } else { dict[key] = coeff }
-//            
-//        }
-//        return dict
-//    }
-//    
-//    func get_dict_key(side: String, i: Int, chem: String) -> String {
-//        "\(side)\(i)_\(chem)"
-//    }
+    func make_eqn_coeffs_list() -> [[[Int]]] {
+        // returns [ [eqn1 LHS coeffs, eqn1 RHS coeffs], [eqn2 LHS coeffs, eqn2 RHS coeffs], ...]
+        // Size: #equations x 2 x #chemicals
+        
+        var eqn_coeffs_list = [[[Int]]].init(repeating: [[Int]].init(repeating: [Int].init(repeating: 0, count: chems.count), count: 2), count: equation_list.count)
+        
+        for (eqn_i, eqn) in equation_list.enumerated() {
+            let eqn_sides = eqn.replacingOccurrences(of: " ", with: "").split(separator: "->") // removes white space and splits over "->"
+            for side_i in 0...1 {
+                for elem in eqn_sides[side_i].split(separator: "+") {
+                    let my_chem = elem.filter({$0.isLetter})
+                    let coeff = Int(elem.filter({$0.isNumber})) ?? 1 // omitted coeff means a 1.
+                    if let chem_i = chems.firstIndex(of: my_chem) {
+                        eqn_coeffs_list[eqn_i][side_i][chem_i] += coeff
+                    } else { print("chemical \(my_chem) not found") }
+                }
+            }
+        }
+        return eqn_coeffs_list
+    }
     
+//    func make_reaction_functions() -> [([Double]) -> Double] {
+//        // returns a list of functions, each giving the d/dt for each chemical. So yet to *dt
+//        // !! SPLIT DIFFERENTLY TO BEWARE OF CHEMICALS
+//        // THINK OF SIMD EARLY?
+//
+//    }
+//    
 }
 

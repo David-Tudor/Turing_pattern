@@ -78,7 +78,6 @@ struct ContentView: View {
                         Text("Time step")
                             .disabledAppearance(if: chemicals.is_sim_running)
                         TextField("dt (secs)", text: $dt_str)
-                            
                     }
                     .frame(width: CGFloat(slider_length))
                     

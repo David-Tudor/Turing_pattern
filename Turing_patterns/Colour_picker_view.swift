@@ -89,6 +89,7 @@ struct Colour_picker_view: View {
         // TODO merge 3 into 1?
         .onChange(of: chemicals.chems.count) { _, newValue in
             update_chem_cols()
+            print(chemicals.make_eqn_coeffs_list())
         }
         .onChange(of: chemicals.background_col_enum) { _, newValue in
             update_chem_cols()

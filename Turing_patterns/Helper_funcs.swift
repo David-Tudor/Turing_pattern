@@ -52,4 +52,20 @@ func get_integs_in_quarter_circle(radius: Double) -> [[Int]] {
     return coords
 }
 
-
+func get_chems_from_eqns(from eqn_list: [String]) -> [String] {
+    var chem_list: [String] = []
+    var mem = ""
+    for str in eqn_list {
+        for c in str {
+            if c.isLetter { // add character to memory
+                mem += String(c)
+            } else if !mem.isEmpty { // chemical finished, try apppend it
+                if !chem_list.contains(mem) { chem_list.append(mem) }
+                mem = ""
+            }
+        }
+        if !mem.isEmpty && !chem_list.contains(mem) { chem_list.append(mem) }
+        mem = ""
+    }
+    return chem_list
+}

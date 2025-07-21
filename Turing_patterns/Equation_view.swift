@@ -15,6 +15,7 @@ struct Equation_view: View {
     @State var eqn_list_local: [String] = []
     @State var are_equations_valid: [Bool] = [true, true]
     @State var are_rates_valid: [Bool] = [true, true]
+    @State var has_excess_chemicals = false
     
     var are_values_invalid: Bool {
         are_equations_valid.contains(false) || are_rates_valid.contains(false)
@@ -22,8 +23,14 @@ struct Equation_view: View {
 
     let eqn_field_length: CGFloat = 150
     let eqn_length: CGFloat = 300
+    let max_chems = 8
     
     func update_eqns_valid() {
+        if get_chems_from_eqns(from: eqn_list_local).count > max_chems {
+            chemicals.are_eqns_up_to_date = false
+            has_excess_chemicals = true
+        } else { has_excess_chemicals = false }
+        
         let eqn_regex = /(?i)^\s*(((\d*[a-z]+)\s*\+\s*)*(\d*[a-z]+))\s*->\s*(((\d*[a-z]+)\s*\+\s*)*(\d*[a-z]+))\s*$/
         for (i, eqn) in eqn_list_local.enumerated() {
             if let _ = try? eqn_regex.wholeMatch(in: eqn) {
@@ -111,9 +118,16 @@ struct Equation_view: View {
                 Button("Enter equations") {
                     enter_eqns_and_rates()
                 }
-                if !chemicals.are_eqns_up_to_date {
-                    Text("Equations \(are_values_invalid ? "invalid" : "outdated")")
-                        .foregroundStyle(.red)
+                .disabled(has_excess_chemicals)
+                VStack(alignment: .leading) {
+                    if !chemicals.are_eqns_up_to_date {
+                        Text("Equations \(are_values_invalid ? "invalid" : "outdated")")
+                            .foregroundStyle(.red)
+                    }
+                    if has_excess_chemicals {
+                        Text("Maximum number of chemicals is \(max_chems)")
+                            .foregroundStyle(.red)
+                    }
                 }
             }
             .padding(.top, 15)

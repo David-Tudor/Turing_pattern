@@ -111,15 +111,27 @@ struct Simulation {
     }
     
     mutating func time_step() {
+        values = diffusion()
+        values = reaction()
+    }
 
+    
+    func diffusion() -> Grid {
         let zeros = [Double](repeating: 0.0, count: chem_cols.count)
         var new_values = values
         var lap = zeros
         let Ddt = diffusion_const * dt
         
-        for x in 0 ..< width {
-            for y in 0 ..< height {
-                lap = laplacian(x, y) // TODO check for negatives
+        for y in 1 ..< height-1 { // ignore the edges
+            for x in 1 ..< width-1 {
+                
+                // Laplacian, using h = 1
+                lap = zeros
+                for i in 0..<chem_cols.count {
+                    // kernel https://math.stackexchange.com/questions/3464125/how-was-the-2d-discrete-laplacian-matrix-calculated
+                    lap[i] = 0.1666 * ( 4 * (values[x-1,y].concs[i] + values[x+1,y].concs[i] + values[x,y-1].concs[i] + values[x,y+1].concs[i]) + (values[x-1,y-1].concs[i] + values[x+1,y+1].concs[i] + values[x+1,y-1].concs[i] + values[x-1,y+1].concs[i]) - 20 * values[x,y].concs[i] )
+                }
+                
                 for i in 0..<chem_cols.count {
                     new_values[x,y].concs[i] += lap[i] * Ddt
                     if new_values[x,y].concs[i] < 0 {
@@ -129,29 +141,13 @@ struct Simulation {
                 }
             }
         }
-        values = new_values
-        values = reaction()
-        
+        return new_values
     }
     
     
     
-    func laplacian(_ x: Int, _ y: Int) -> [Double] {
-        // using h = 1
-        var ans = [Double](repeating: 0.0, count: chem_cols.count)
-        if !is_point_edge(x,y) {
-            for i in 0..<chem_cols.count {
-                // kernel https://math.stackexchange.com/questions/3464125/how-was-the-2d-discrete-laplacian-matrix-calculated
-                ans[i] = 0.1666 * ( 4 * (values[x-1,y].concs[i] + values[x+1,y].concs[i] + values[x,y-1].concs[i] + values[x,y+1].concs[i])
-                                 + (values[x-1,y-1].concs[i] + values[x+1,y+1].concs[i] + values[x+1,y-1].concs[i] + values[x-1,y+1].concs[i])
-                                 - 20 * values[x,y].concs[i] )
-            }
-        }
-        return ans
-    }
-    
+
     func reaction() -> Grid {
-//        let rates = [1.0, 0.1, 0.4]
         let rates = [1.0, 0.05, 0.2]
         func expr1(_ a: Double, _ b: Double, _ p: Double) -> Double { return -rates[0] * a*b*b + rates[1] * pow(b, 3) }
         func expr2(_ a: Double, _ b: Double, _ p: Double) -> Double { return -rates[2] * b }
@@ -185,9 +181,10 @@ struct Grid {
     let height: Int
     let width: Int
     
+    @inlinable
     subscript(row: Int, column: Int) -> Cell {
-        get { return values[(row * height) + column] }
-        set { values[(row * height) + column] = newValue }
+        get { return values[(row * width) + column] }
+        set { values[(row * width) + column] = newValue }
     }
     
     init(height: Int, width: Int, num_chems: Int) {
