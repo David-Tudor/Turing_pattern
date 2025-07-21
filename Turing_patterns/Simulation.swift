@@ -14,7 +14,7 @@ import simd
 struct Simulation {
     let height: Int
     let width: Int
-    var chem_cols: [Colour] // overwritten with cym if <=3 colours
+    var chem_cols: [Colour] // data passed from simulation_container via onChange
     var values: Grid
     var is_running = false
     var background_col: Colour // if white (255,...), cym used, else rgb or specified colours

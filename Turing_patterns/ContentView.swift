@@ -33,6 +33,7 @@ struct ContentView: View {
     }
     @State private var dt_str = "0.1"
     @State private var is_darkmode = true
+    @State private var is_sponge = false
     
     let slider_length = 250
     
@@ -46,26 +47,36 @@ struct ContentView: View {
                 Slider(value: $brush_size, in: 1...50)
                     .frame(width: CGFloat(slider_length))
                 
-                // Slider for brush chemical
+                // Slider for brush type
                 HStack {
-                    let is_chem = !(brush_chem_i == chemicals.chems.count)
-                    Text("Brush: \(is_chem ? "chemical" : "sponge")")
-                    let rgb = is_chem ? chemicals.chem_cols[brush_chem_i] : rgb_for(col: chemicals.background_col_enum) // sponge not chemical if false
-                    Coloured_square(size: CGFloat(10), rgb: rgb)
-
+                    Text("Brush type")
+//                    if let colour = chemicals.chem_cols[brush_chem_i] {
+//                    } else {
+//                        let colour = chemicals.chem_cols.first
+//
+//                    }
+                    Coloured_square(size: CGFloat(10), rgb: is_sponge ? rgb_for(col: chemicals.background_col_enum) : chemicals.chem_cols[(brush_chem_i < chemicals.chem_cols.count) ? brush_chem_i : 0])
+                    Divider()
+                    Toggle("Use sponge", isOn: $is_sponge)
                 }
-                Slider(value: $brush_chem_i_dbl, in: 0...Double(chemicals.chems.count), step: 1)
-                    .frame(width: CGFloat(slider_length))
+                .frame(height: 20)
+                .onChange(of: chemicals.chem_cols.count) { _, newValue in
+                    if brush_chem_i >= newValue { brush_chem_i_dbl = 0.0}
+                }
                 
+                if chemicals.chems.count >= 2 { // else nothing to slide
+                    Slider(value: $brush_chem_i_dbl, in: 0...Double(chemicals.chems.count-1), step: 1)
+                        .frame(width: CGFloat(slider_length))
+                        .disabled(is_sponge)
+                }
                 
                 Divider()
                 
-                VStack {
+                VStack(alignment: .leading) {
                     // Time step
                     HStack {
                         Text("Time step")
-                            .foregroundColor(chemicals.is_sim_running ? .gray : .primary)
-                            .opacity(chemicals.is_sim_running ? 0.6 : 1.0)
+                            .disabledAppearance(if: chemicals.is_sim_running)
                         TextField("dt (secs)", text: $dt_str)
                             
                     }
@@ -78,15 +89,14 @@ struct ContentView: View {
                             case true:  chemicals.background_col_enum = .black
                             case false: chemicals.background_col_enum = .white
                             }
-                            chemicals.update_chem_cols()
                         }
                     
                      
                     // Chemical equations
                     Equation_view()
+                    // Chemical colour picker
                     Colour_picker_view()
-                        .foregroundColor(chemicals.is_sim_running ? .gray : .primary)
-                        .opacity(chemicals.is_sim_running ? 0.6 : 1.0)
+                        .disabledAppearance(if: chemicals.is_sim_running)
                 }
                 .disabled(chemicals.is_sim_running)
                 
@@ -108,6 +118,7 @@ struct ContentView: View {
                 .onAppear {
                     is_focused = true
                 }
+                .disabled(!chemicals.are_eqns_up_to_date)
                 
                 Spacer()
             }
@@ -122,4 +133,7 @@ struct ContentView: View {
         .environmentObject(chemicals)
     } // end of body
 }
+
+
+
 

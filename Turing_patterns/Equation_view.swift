@@ -16,12 +16,10 @@ struct Equation_view: View {
     @State var are_equations_valid: [Bool] = [true, true]
     @State var are_rates_valid: [Bool] = [true, true]
     
-    // BEST IF DATA HELD LOCALLY, THEN UPDATE FUNCTIONS CALLED which change chemicals' properties only if new values are valid
-    // onChange of local lists, chemicals.eqns_edited = true which should enable a button in contentView and disable the simulate button. Running local update funcs should resest edited to false.
-    // Therefore, chemicals always has valid equations and rates.
-    
-    // onchange of either, update either validity. publish if all good. if not flip flag in chemicals so warning/disabled results
-    
+    var are_values_invalid: Bool {
+        are_equations_valid.contains(false) || are_rates_valid.contains(false)
+    }
+
     let eqn_field_length: CGFloat = 150
     let eqn_length: CGFloat = 300
     
@@ -49,9 +47,7 @@ struct Equation_view: View {
         update_eqns_valid()
         update_rates_valid()
         
-        if are_equations_valid.contains(false) || are_rates_valid.contains(false) {
-             // do nothing
-        } else {
+        if !are_values_invalid {
             var new_rates = [[Double]].init(repeating: [0.0, 0.0], count: rate_str_list.count)
             for i in 0..<rate_str_list.count {
                 new_rates[i] = [Double(rate_str_list[i][0]) ?? 0.0,Double(rate_str_list[i][1]) ?? 0.0]
@@ -60,6 +56,7 @@ struct Equation_view: View {
             chemicals.rate_list = new_rates
             
             chemicals.are_eqns_up_to_date = true
+            chemicals.update_all()
         }
     }
     
@@ -110,9 +107,14 @@ struct Equation_view: View {
                 }
             }
             
-            
-            Button("Enter equations") {
-                enter_eqns_and_rates()
+            HStack {
+                Button("Enter equations") {
+                    enter_eqns_and_rates()
+                }
+                if !chemicals.are_eqns_up_to_date {
+                    Text("Equations \(are_values_invalid ? "invalid" : "outdated")")
+                        .foregroundStyle(.red)
+                }
             }
             .padding(.top, 15)
         }
@@ -129,6 +131,10 @@ struct Equation_view: View {
         .onAppear {
             rate_str_list = rate_list_to_strs()
             eqn_list_local = chemicals.equation_list
+            DispatchQueue.main.async {
+                chemicals.are_eqns_up_to_date = true
+            }
+            
         }
     }
 }

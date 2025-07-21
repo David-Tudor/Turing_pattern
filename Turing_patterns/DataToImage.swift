@@ -88,6 +88,7 @@ enum Colour_enum {
     case cyan
     case yellow
     case magenta
+    case purple
 }
 
 func rgb_for(col: Colour_enum) -> Colour {
@@ -101,6 +102,7 @@ func rgb_for(col: Colour_enum) -> Colour {
     case .cyan: return [0, 255, 255]
     case .yellow: return [255, 0, 255]
     case .magenta: return [255, 255, 0]
+    case .purple: return [191, 64, 191]
     }
 }
 
