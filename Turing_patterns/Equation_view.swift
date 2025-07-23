@@ -23,13 +23,13 @@ struct Equation_view: View {
 
     let eqn_field_length: CGFloat = 150
     let eqn_length: CGFloat = 300
-    let max_chems = 8
+    let max_chems = 8 // disabled. Enable in update_eqns_valid()
     
     func update_eqns_valid() {
-        if get_chems_from_eqns(from: eqn_list_local).count > max_chems {
-            chemicals.are_eqns_up_to_date = false
-            has_excess_chemicals = true
-        } else { has_excess_chemicals = false }
+//        if get_chems_from_eqns(from: eqn_list_local).count > max_chems {
+//            chemicals.are_eqns_up_to_date = false
+//            has_excess_chemicals = true
+//        } else { has_excess_chemicals = false }
         
         let eqn_regex = /(?i)^\s*(((\d*[a-z]+)\s*\+\s*)*(\d*[a-z]+))\s*->\s*(((\d*[a-z]+)\s*\+\s*)*(\d*[a-z]+))\s*$/
         for (i, eqn) in eqn_list_local.enumerated() {

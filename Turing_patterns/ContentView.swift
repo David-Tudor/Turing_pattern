@@ -9,7 +9,7 @@
 // currently, some thing init'd assuming the default chemical equations.
 // prevent negative colours
 // make permanent chem sources?
-// SIMD early-ish - or try map, research convolution, design both as rgb <= 3 <= 4
+// SIMD?
 // make chem equations to simulation better
 // conc to colour sensitivity
 // why does refresh time = calc time + dt?
