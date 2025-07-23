@@ -215,14 +215,23 @@ struct Simulation {
     func reaction() -> Grid {
         var new_values = values
         var results = [Double].init(repeating: 0.0, count: chem_cols.count)
-        for f in reaction_funcs { // MAKE f OPTIONAL IF (L-R) = 0 - most equations don't have all chems OR k=0 eg backwards.
+        let test_concs = [Double].init(repeating: 1.0, count: chem_cols.count)
+
+        for f in reaction_funcs {
+            // Test for which chems f(x)=0 so those can be skipped:
+            let test_results = f(test_concs).map{!$0.isZero} // test which elements are non-zero
+            var chem_idxs: [Int] = [] // skip chemicals where LHS coeff = RHS coeff.
+            for i in 0..<chem_cols.count where test_results[i] { chem_idxs.append(i) }
+            if chem_idxs.isEmpty { continue } // if rate=0, f(x)=0 so no reactions/changes needed
+            
             for x in 0 ..< width {
                 for y in 0 ..< height {
                     let concs = values[x,y].concs
                     let f_val = f(concs)
                     var is_positive = true
-                    for i in 0..<chem_cols.count {
-                        results[i] = new_values[x,y].concs[i] + f_val[i] * dt
+                    results = new_values[x,y].concs
+                    for i in chem_idxs {
+                        results[i] += f_val[i] * dt
                         if results[i] < 0 {
                             is_positive = false
                             break // can't react if it would make a negative so skip the reaction.
