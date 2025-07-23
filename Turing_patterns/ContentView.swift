@@ -6,17 +6,18 @@
 //
 
 // TODO
+// currently, some thing init'd assuming the default chemical equations.
 // prevent negative colours
-// make diffusion act fast - higher fps?
 // make permanent chem sources?
 // SIMD early-ish - or try map, research convolution, design both as rgb <= 3 <= 4
 // make chem equations to simulation better
 // conc to colour sensitivity
 // why does refresh time = calc time + dt?
+// could make a non real time one.
+// maybe look at metal
+// make RK4, not Euler method. prio timer bug. run time step on a single non-main core?
 
-// NEXT make new eqn source work and update properly, colour picker
-
-// 3 in Equation_view, local rate_str_list not init'd onAppear before view crashes (so currently hardcoded)
+// NEXT test single vs double, test simd
 
 
 import SwiftUI
@@ -50,11 +51,6 @@ struct ContentView: View {
                 // Slider for brush type
                 HStack {
                     Text("Brush type")
-//                    if let colour = chemicals.chem_cols[brush_chem_i] {
-//                    } else {
-//                        let colour = chemicals.chem_cols.first
-//
-//                    }
                     Coloured_square(size: CGFloat(10), rgb: is_sponge ? rgb_for(col: chemicals.background_col_enum) : chemicals.chem_cols[(brush_chem_i < chemicals.chem_cols.count) ? brush_chem_i : 0])
                     Divider()
                     Toggle("Use sponge", isOn: $is_sponge)
@@ -123,7 +119,7 @@ struct ContentView: View {
             }
             
             VStack {
-                Simulation_container(brush_size: brush_size, brush_chem_i_dbl: brush_chem_i_dbl, background_col_enum: chemicals.background_col_enum, chem_cols: chemicals.chem_cols, dt_str: dt_str)
+                Simulation_container(brush_size: brush_size, brush_chem_i_dbl: brush_chem_i_dbl, background_col_enum: chemicals.background_col_enum, chem_cols: chemicals.chem_cols, dt_str: dt_str, is_sponge: is_sponge, chems: chemicals.chems, equation_list: chemicals.equation_list, rate_list: chemicals.rate_list)
                 
             } // end of 2nd column VStack
 

@@ -69,3 +69,7 @@ func get_chems_from_eqns(from eqn_list: [String]) -> [String] {
     }
     return chem_list
 }
+
+func duration_to_dbl(_ duration: Duration) -> Double {
+    Double(duration.components.attoseconds) * 1e-18 + Double(duration.components.seconds)
+}

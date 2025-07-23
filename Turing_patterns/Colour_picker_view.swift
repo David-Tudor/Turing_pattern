@@ -44,6 +44,10 @@ struct Colour_picker_view: View {
             
         }
         chemicals.chem_cols = picker_cols
+        
+        while chemicals.D_strs.count < chemicals.chems.count {
+            chemicals.D_strs.append(chemicals.D_default.description)
+        }
     }
     
     func color_to_rgb(for color: Color) -> Colour {
@@ -67,7 +71,11 @@ struct Colour_picker_view: View {
     
     var body: some View {
         VStack(alignment: .leading) {
-            Text("Chemical colour selection")
+            HStack {
+                Text("Colour selection")
+                Spacer()
+                Text("Diffusion constants")
+            }
             ForEach(chem_range, id: \.self) { i in
                 HStack {
                     Text("Chemical \(chemicals.chems[i])")
@@ -76,6 +84,7 @@ struct Colour_picker_view: View {
                             .disabled(chemicals.chems.count <= 3)
                         if (chemicals.chems.count <= 3) {Image(systemName: "lock.fill")}
                     }
+                    TextField("Diffusion const", text: $chemicals.D_strs[i])
                 }
             }
         }
@@ -89,7 +98,6 @@ struct Colour_picker_view: View {
         // TODO merge 3 into 1?
         .onChange(of: chemicals.chems.count) { _, newValue in
             update_chem_cols()
-            print(chemicals.make_eqn_coeffs_list())
         }
         .onChange(of: chemicals.background_col_enum) { _, newValue in
             update_chem_cols()

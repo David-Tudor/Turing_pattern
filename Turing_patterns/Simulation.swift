@@ -9,7 +9,7 @@ import Foundation
 import SwiftUI
 import simd
 
-
+import Accelerate
 
 struct Simulation {
     let height: Int
@@ -19,17 +19,17 @@ struct Simulation {
     var is_running = false
     var background_col: Colour // if white (255,...), cym used, else rgb or specified colours
     var dt: Double
-    let diffusion_const = 2.0
+    var diffusion_consts: [Double] = []
+    var reaction_funcs: [ ([Double]) -> [Double] ]
     
-    
-    init(height: Int, width: Int, chem_cols: [Colour], dt: Double, background_col_enum: Colour_enum) {
+    init(height: Int, width: Int, chem_cols: [Colour], dt: Double, background_col_enum: Colour_enum, chems: [String], equation_list: [String], rate_list: [[Double]]) {
         self.height = height
         self.width = width
         self.dt = dt
         self.values = Grid(height: height, width: width, num_chems: chem_cols.count)
         self.background_col = rgb_for(col: background_col_enum)
         self.chem_cols = []
-        
+        self.reaction_funcs = make_reaction_functions(chems: chems, equation_list: equation_list, rate_list: rate_list)
     }
     
     func export_to_view() -> some View {
@@ -41,15 +41,15 @@ struct Simulation {
                 // move 0 check to the start? add mode option?
                 
                 if values[x,y].concs.allSatisfy({$0 == 0.0}) {
-                    pixel_data[(x * height) + y] = background_pixel
+                    pixel_data[(y * width) + x] = background_pixel
                 } else if chem_cols.count <= 3 {
-                    pixel_data[(x * height) + y] = make_PixelData(rgb: concs_to_colours(concs: values[x,y].concs))
+                    pixel_data[(y * width) + x] = make_PixelData(rgb: concs_to_colours(concs: values[x,y].concs))
                 } else {
                     // show most concentrated chemical
                     guard let i = find_idx_of_max(of: values[x,y].concs) else {
                         continue // pixel is left as background (grey) if all concs are zero
                     }
-                    pixel_data[(x * height) + y] = make_PixelData(rgb: chem_cols[i])
+                    pixel_data[(y * width) + x] = make_PixelData(rgb: chem_cols[i])
                 }
             }
         }
@@ -91,8 +91,8 @@ struct Simulation {
         values = Grid(height: height, width: width, num_chems: chem_cols.count)
     }
     
-    mutating func create_circle(of chem_i: Int, around position: [Int], diameter: Double, amount: Double) {
-        // if chem_i == chem_cols.count, sponge up chemicals, else add the chosen one.
+    mutating func create_circle(of chem_i: Int?, around position: [Int], diameter: Double, amount: Double) {
+        // if chem_i == nil, sponge up chemicals, else add the chosen one.
         let coords = get_integs_in_circle(diameter: diameter)
         var x = 0
         var y = 0
@@ -101,10 +101,10 @@ struct Simulation {
             x = xy[0] + position[0]
             y = xy[1] + position[1]
             if is_point_valid(x, y) {
-                if chem_i == chem_cols.count {
-                    values[x, y].concs = [Double](repeating: 0.0, count: chem_cols.count) // sponge
+                if let chemical = chem_i  {
+                    values[x, y].concs[chemical] += amount // add chemical
                 } else {
-                    values[x, y].concs[chem_i] += amount // add chemical
+                    values[x, y].concs = [Double](repeating: 0.0, count: chem_cols.count) // sponge
                 }
             }
         }
@@ -114,13 +114,78 @@ struct Simulation {
         values = diffusion()
         values = reaction()
     }
-
+    
+    // Diffusion functions
     
     func diffusion() -> Grid {
+        let Ddt = diffusion_consts.map { Float($0 * dt) }
+        var src = [[Float]].init(repeating: [Float].init(repeating: 0.0, count: height*width), count: chem_cols.count)
+        var dst = src
+        for i in 0..<chem_cols.count {
+            var key = 0
+            for y in 0 ..< height {
+                for x in 0 ..< width {
+                    src[i][key] = Float(values[x,y].concs[i])
+                    key += 1
+                }
+            }
+        }
+        
+        // kernel https://math.stackexchange.com/questions/3464125/how-was-the-2d-discrete-laplacian-matrix-calculated
+        let kernel: [Float] = [
+            1,  4,  1,
+            4, -20, 4,
+            1,  4,  1
+        ].map { $0 * 0.1667 }
+        let v_height = vImagePixelCount(height)
+        let v_width = vImagePixelCount(width)
+        let row_bytes = width * MemoryLayout<Float>.stride
+        
+        kernel.withUnsafeBufferPointer { kernel_ptr in
+            for i in 0..<chem_cols.count {
+                src[i].withUnsafeMutableBufferPointer { src_ptr in
+                    dst[i].withUnsafeMutableBufferPointer { dst_ptr in
+                        var src_buffer = vImage_Buffer(
+                            data: src_ptr.baseAddress!,
+                            height: v_height,
+                            width: v_width,
+                            rowBytes: row_bytes
+                        )
+                        
+                        var dst_buffer = vImage_Buffer(
+                            data: dst_ptr.baseAddress!,
+                            height: v_height,
+                            width: v_width,
+                            rowBytes: row_bytes
+                        )
+                        
+                        let _ = vImageConvolve_PlanarF(&src_buffer, &dst_buffer, nil, 0, 0, kernel_ptr.baseAddress!, 3, 3, 0, vImage_Flags(kvImageEdgeExtend)
+                        )
+                    }
+                }
+            }
+        }
+        
+        var newGrid = Grid(height: height, width: width, num_chems: chem_cols.count)
+        for y in 0..<height {
+            let yw = y * width
+            for x in 0..<width {
+                let key = yw + x
+                for i in 0..<chem_cols.count {
+                    newGrid[x, y].concs[i] = max(0.0, Double(src[i][key] + dst[i][key] * Ddt[i]))
+                }
+            }
+        }
+        
+        return newGrid
+    }
+
+    
+    func diffusionOLD() -> Grid {
         let zeros = [Double](repeating: 0.0, count: chem_cols.count)
         var new_values = values
         var lap = zeros
-        let Ddt = diffusion_const * dt
+        let Ddt = diffusion_consts.map {$0 * dt}
         
         for y in 1 ..< height-1 { // ignore the edges
             for x in 1 ..< width-1 {
@@ -133,9 +198,9 @@ struct Simulation {
                 }
                 
                 for i in 0..<chem_cols.count {
-                    new_values[x,y].concs[i] += lap[i] * Ddt
+                    new_values[x,y].concs[i] += lap[i] * Ddt[i]
                     if new_values[x,y].concs[i] < 0 {
-                        print("WARNING, DIFFUSION WOULD GIVE NEGATIVE \(new_values[x,y].concs[i]-lap[i] * Ddt) + \(lap[i]) * \(Ddt)")
+                        print("WARNING, DIFFUSION WOULD GIVE NEGATIVE \(new_values[x,y].concs[i]-lap[i] * Ddt[i]) + \(lap[i]) * \(Ddt[i])")
                         new_values[x,y].concs[i] = 0
                     }
                 }
@@ -145,10 +210,36 @@ struct Simulation {
     }
     
     
+    // Reaction functions
     
-
     func reaction() -> Grid {
-        let rates = [1.0, 0.05, 0.2]
+        var new_values = values
+        var results = [Double].init(repeating: 0.0, count: chem_cols.count)
+        for f in reaction_funcs { // MAKE f OPTIONAL IF (L-R) = 0 - most equations don't have all chems OR k=0 eg backwards.
+            for x in 0 ..< width {
+                for y in 0 ..< height {
+                    let concs = values[x,y].concs
+                    let f_val = f(concs)
+                    var is_positive = true
+                    for i in 0..<chem_cols.count {
+                        results[i] = new_values[x,y].concs[i] + f_val[i] * dt
+                        if results[i] < 0 {
+                            is_positive = false
+                            break // can't react if it would make a negative so skip the reaction.
+                        }
+                    }
+                    if is_positive {
+                        new_values[x,y].concs = results
+                    }
+                }
+            }
+        }
+        return new_values
+    }
+    
+    
+    func reactionHARDCODED() -> Grid {
+        let rates = [0.5, 0.03, 0.1]
         func expr1(_ a: Double, _ b: Double, _ p: Double) -> Double { return -rates[0] * a*b*b + rates[1] * pow(b, 3) }
         func expr2(_ a: Double, _ b: Double, _ p: Double) -> Double { return -rates[2] * b }
         var new_values = values
@@ -182,9 +273,9 @@ struct Grid {
     let width: Int
     
     @inlinable
-    subscript(row: Int, column: Int) -> Cell {
-        get { return values[(row * width) + column] }
-        set { values[(row * width) + column] = newValue }
+    subscript(x: Int, y: Int) -> Cell {
+        get { return values[(y * width) + x] }
+        set { values[(y * width) + x] = newValue }
     }
     
     init(height: Int, width: Int, num_chems: Int) {
