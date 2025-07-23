@@ -8,7 +8,7 @@
 import Foundation
 
 
-func find_idx_of_max(of a: [Double]) -> Int? {
+func find_idx_of_max(of a: [Num]) -> Int? {
     assert(a.count >= 1)
     if a.allSatisfy({$0 == 0.0}) { return nil } // nil if all elements are zero
     

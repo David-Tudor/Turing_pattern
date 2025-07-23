@@ -18,12 +18,12 @@ struct Simulation {
     var values: Grid
     var is_running = false
     var background_col: Colour // if white (255,...), cym used, else rgb or specified colours
-    var dt: Double
-    var diffusion_consts: [Double] = []
-    var reaction_funcs: [ ([Double]) -> [Double] ]
+    var dt: Num
+    var diffusion_consts: [Num] = []
+    var reaction_funcs: [ ([Num]) -> [Num] ]
     
-    var test_concs: [Double] {
-        [Double].init(repeating: 1.0, count: chem_cols.count)
+    var test_concs: [Num] {
+        [Num].init(repeating: 1.0, count: chem_cols.count)
     }
     
     var test_results_all: [[Bool]] {
@@ -44,7 +44,7 @@ struct Simulation {
         return ans
     }
     
-    init(height: Int, width: Int, chem_cols: [Colour], dt: Double, background_col_enum: Colour_enum, chems: [String], equation_list: [String], rate_list: [[Double]]) {
+    init(height: Int, width: Int, chem_cols: [Colour], dt: Num, background_col_enum: Colour_enum, chems: [String], equation_list: [String], rate_list: [[Num]]) {
         self.height = height
         self.width = width
         self.dt = dt
@@ -80,9 +80,9 @@ struct Simulation {
         return Image(cgimage, scale: 1, label: Text(""))
     }
     
-    func concs_to_colours(concs: [Double]) -> Colour {
+    func concs_to_colours(concs: [Num]) -> Colour {
         // returns a rgb or cym Colour. concs of different chemicals change independent channels (so assumes <= 3 concs)
-        var c = 0.0
+        var c: Num = 0.0
         
         var col: [Int]
         let sign: Int
@@ -113,7 +113,7 @@ struct Simulation {
         values = Grid(height: height, width: width, num_chems: chem_cols.count)
     }
     
-    mutating func create_circle(of chem_i: Int?, around position: [Int], diameter: Double, amount: Double) {
+    mutating func create_circle(of chem_i: Int?, around position: [Int], diameter: Double, amount: Num) {
         // if chem_i == nil, sponge up chemicals, else add the chosen one.
         let coords = get_integs_in_circle(diameter: diameter)
         var x = 0
@@ -126,7 +126,7 @@ struct Simulation {
                 if let chemical = chem_i  {
                     values[x, y].concs[chemical] += amount // add chemical
                 } else {
-                    values[x, y].concs = [Double](repeating: 0.0, count: chem_cols.count) // sponge
+                    values[x, y].concs = [Num](repeating: 0.0, count: chem_cols.count) // sponge
                 }
             }
         }
@@ -194,7 +194,7 @@ struct Simulation {
             for x in 0..<width {
                 let key = yw + x
                 for i in 0..<chem_cols.count {
-                    newGrid[x, y].concs[i] = max(0.0, Double(src[i][key] + dst[i][key] * Ddt[i]))
+                    newGrid[x, y].concs[i] = max(0.0, Num(src[i][key] + dst[i][key] * Ddt[i]))
                 }
             }
         }
@@ -204,7 +204,7 @@ struct Simulation {
 
     
     func diffusionOLD() -> Grid {
-        let zeros = [Double](repeating: 0.0, count: chem_cols.count)
+        let zeros = [Num](repeating: 0.0, count: chem_cols.count)
         var new_values = values
         var lap = zeros
         let Ddt = diffusion_consts.map {$0 * dt}
@@ -236,7 +236,7 @@ struct Simulation {
     
     func reaction() -> Grid {
         var new_values = values
-        var results = [Double].init(repeating: 0.0, count: chem_cols.count)
+        var results = [Num].init(repeating: 0.0, count: chem_cols.count)
         
         
         for (f_i, f) in reaction_funcs.enumerated() {
@@ -268,13 +268,13 @@ struct Simulation {
     
     
     func reactionHARDCODED() -> Grid {
-        let rates = [0.5, 0.03, 0.1]
-        func expr1(_ a: Double, _ b: Double, _ p: Double) -> Double { return -rates[0] * a*b*b + rates[1] * pow(b, 3) }
-        func expr2(_ a: Double, _ b: Double, _ p: Double) -> Double { return -rates[2] * b }
+        let rates: [Num] = [0.5, 0.03, 0.1]
+        func expr1(_ a: Num, _ b: Num, _ p: Num) -> Num { return -rates[0] * a*b*b + rates[1] * pow(b, 3) }
+        func expr2(_ a: Num, _ b: Num, _ p: Num) -> Num { return -rates[2] * b }
         var new_values = values
-        var concs: [Double]
-        var val1: Double
-        var val2: Double
+        var concs: [Num]
+        var val1: Num
+        var val2: Num
         for x in 0 ..< width {
             for y in 0 ..< height { // can't use a matrix as not linear e.g. in b. what else?
                 concs = values[x,y].concs
@@ -308,7 +308,7 @@ struct Grid {
     }
     
     init(height: Int, width: Int, num_chems: Int) {
-        let cell = Cell(concs: [Double](repeating: 0.0, count: num_chems))
+        let cell = Cell(concs: [Num](repeating: 0.0, count: num_chems))
         self.values = [Cell](repeating: cell, count: Int(height * width))
         self.height = height
         self.width = width
@@ -316,5 +316,7 @@ struct Grid {
 }
 
 struct Cell {
-    var concs: [Double]
+    var concs: [Num]
 }
+
+typealias Num = Double

@@ -22,7 +22,7 @@ struct Simulation_container: View {
     }
     
     var timer: Publishers.Autoconnect<Timer.TimerPublisher> {
-            Timer.publish(every: dt, on: .main, in: .common).autoconnect()
+        Timer.publish(every: TimeInterval(dt), on: .main, in: .common).autoconnect()
         }
     
     var brush_size: Double
@@ -33,8 +33,8 @@ struct Simulation_container: View {
         else { return Int(brush_chem_i_dbl) }
     }
     var dt_str: String
-    var dt: Double {
-        let d = Double(dt_str.trimmingCharacters(in: .whitespacesAndNewlines))
+    var dt: Num {
+        let d = Num(dt_str.trimmingCharacters(in: .whitespacesAndNewlines))
         if d != nil && d! > 0 {
             return d!
         } else {
@@ -43,10 +43,10 @@ struct Simulation_container: View {
     }
     
     let sim_size = [250, 250]
-    let dt_default = 0.1
+    let dt_default: Num = 0.1
 
     
-    init(drag_location: CoreFoundation.CGPoint = CGPoint.zero, brush_size: Double, brush_chem_i_dbl: Double, background_col_enum: Colour_enum, chem_cols: [Colour], dt_str: String, is_sponge: Bool, chems: [String], equation_list: [String], rate_list: [[Double]]) {
+    init(drag_location: CoreFoundation.CGPoint = CGPoint.zero, brush_size: Double, brush_chem_i_dbl: Double, background_col_enum: Colour_enum, chem_cols: [Colour], dt_str: String, is_sponge: Bool, chems: [String], equation_list: [String], rate_list: [[Num]]) {
         
         self.simulation = Simulation(height: sim_size[0], width: sim_size[1], chem_cols: chem_cols, dt: 0.1, background_col_enum: background_col_enum, chems: chems, equation_list: equation_list, rate_list: rate_list)
         self.drag_location = drag_location
@@ -65,7 +65,7 @@ struct Simulation_container: View {
             
             // chemical brush:
                 .onChange(of: drag_location) { oldValue, newValue in
-                    simulation.create_circle(of: brush_chem_i, around: [Int(newValue.x), Int(newValue.y)], diameter: brush_size, amount: 1.0) // note: to agree with the screen, newvalue.x and .y are swapped DELETE COMMENT
+                    simulation.create_circle(of: brush_chem_i, around: [Int(newValue.x), Int(newValue.y)], diameter: brush_size, amount: 1.0)
                 }
             
             // time stepper:
@@ -84,7 +84,7 @@ struct Simulation_container: View {
                         }
 
                         print(String(format: "Time OF step: %.3f | CALCULATE step %.3f | EFF. %.3f",
-                                     step_time, duration_to_dbl(elapsed), dt/step_time))
+                                     step_time, duration_to_dbl(elapsed), Double(dt)/step_time))
                     }
                 }
             

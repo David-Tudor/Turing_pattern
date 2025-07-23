@@ -41,7 +41,7 @@ struct Equation_view: View {
     
     func update_rates_valid() {
         for i in 0..<rate_str_list.count {
-            guard let d0 = Double(rate_str_list[i][0]), let d1 = Double(rate_str_list[i][1]) else {
+            guard let d0 = Num(rate_str_list[i][0]), let d1 = Num(rate_str_list[i][1]) else {
                 are_rates_valid[i] = false
                 return
             }
@@ -55,9 +55,9 @@ struct Equation_view: View {
         update_rates_valid()
         
         if !are_values_invalid {
-            var new_rates = [[Double]].init(repeating: [0.0, 0.0], count: rate_str_list.count)
+            var new_rates = [[Num]].init(repeating: [0.0, 0.0], count: rate_str_list.count)
             for i in 0..<rate_str_list.count {
-                new_rates[i] = [Double(rate_str_list[i][0]) ?? 0.0,Double(rate_str_list[i][1]) ?? 0.0]
+                new_rates[i] = [Num(rate_str_list[i][0]) ?? 0.0,Num(rate_str_list[i][1]) ?? 0.0]
             }
             chemicals.equation_list = eqn_list_local
             chemicals.rate_list = new_rates
