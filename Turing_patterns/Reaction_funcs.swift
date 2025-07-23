@@ -7,20 +7,6 @@
 
 import Foundation
 
-func my_pow(_ x: Double, _ n: Int) -> Double {
-    switch n {
-    case 0: return 1
-    case 1: return x
-    case 2: return x * x
-    case 3: return x * x * x
-    case 4: let x2 = x * x; return x2 * x2
-    default:
-        var ans = 1.0
-        for _ in 0..<n { ans *= x }
-        return ans
-    }
-}
-
 func make_eqn_coeffs_list(chems: [String], equation_list: [String]) -> [[[Int]]] {
     // returns [ [eqn1 LHS coeffs, eqn1 RHS coeffs], [eqn2 LHS coeffs, eqn2 RHS coeffs], ...]
     // Size: #equations x 2 x #chemicals
@@ -42,17 +28,30 @@ func make_eqn_coeffs_list(chems: [String], equation_list: [String]) -> [[[Int]]]
     return eqn_coeffs_list
 }
 
+func my_pow(_ x: Double, _ n: Int) -> Double {
+    switch n {
+    case 0: return 1
+    case 1: return x
+    case 2: return x * x
+    case 3: return x * x * x
+    case 4: let x2 = x * x; return x2 * x2
+    default:
+        var ans = 1.0
+        for _ in 0..<n { ans *= x }
+        return ans
+    }
+}
+
 func make_reaction_func(k: Double, lhs_chem_coeffs: [Int], rhs_chem_coeffs: [Int]) -> ([Double]) -> [Double] {
     // given an equation, returns: a function of the chem concs which returns the d/dt of each chemical
-    let coeff_diffs = zip(lhs_chem_coeffs, rhs_chem_coeffs).map { (l,r) in
-        Double(r-l)
-    }
+    let coeff_diffs = zip(lhs_chem_coeffs, rhs_chem_coeffs).map { (l,r) in Double(r-l) }
+    
     return { concs in
-        var ans = k
+        var term = k
         for (i, conc) in concs.enumerated() {
-            ans *= my_pow(conc, lhs_chem_coeffs[i])
+            term *= my_pow(conc, lhs_chem_coeffs[i])
         }
-        return coeff_diffs.map { diff in diff * ans } // TO CHECK, does this '*' work?
+        return coeff_diffs.map { diff in diff * term }
     }
 }
 

@@ -22,6 +22,28 @@ struct Simulation {
     var diffusion_consts: [Double] = []
     var reaction_funcs: [ ([Double]) -> [Double] ]
     
+    var test_concs: [Double] {
+        [Double].init(repeating: 1.0, count: chem_cols.count)
+    }
+    
+    var test_results_all: [[Bool]] {
+        var ans: [[Bool]] = []
+        for f in reaction_funcs {
+            ans.append(f(test_concs).map{!$0.isZero})
+        }
+        return ans
+    }
+    
+    var chem_idxs_all: [[Int]] {
+        var ans = [[Int]].init(repeating: [], count: reaction_funcs.count)
+        for i in 0..<reaction_funcs.count {
+            for j in 0..<chem_cols.count where test_results_all[i][j] {
+                ans[i].append(j)
+            }
+        }
+        return ans
+    }
+    
     init(height: Int, width: Int, chem_cols: [Colour], dt: Double, background_col_enum: Colour_enum, chems: [String], equation_list: [String], rate_list: [[Double]]) {
         self.height = height
         self.width = width
@@ -215,13 +237,11 @@ struct Simulation {
     func reaction() -> Grid {
         var new_values = values
         var results = [Double].init(repeating: 0.0, count: chem_cols.count)
-        let test_concs = [Double].init(repeating: 1.0, count: chem_cols.count)
-
-        for f in reaction_funcs {
+        
+        
+        for (f_i, f) in reaction_funcs.enumerated() {
             // Test for which chems f(x)=0 so those can be skipped:
-            let test_results = f(test_concs).map{!$0.isZero} // test which elements are non-zero
-            var chem_idxs: [Int] = [] // skip chemicals where LHS coeff = RHS coeff.
-            for i in 0..<chem_cols.count where test_results[i] { chem_idxs.append(i) }
+            let chem_idxs = chem_idxs_all[f_i] // skip chemicals where LHS coeff = RHS coeff.
             if chem_idxs.isEmpty { continue } // if rate=0, f(x)=0 so no reactions/changes needed
             
             for x in 0 ..< width {
