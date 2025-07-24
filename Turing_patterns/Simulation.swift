@@ -21,6 +21,7 @@ struct Simulation {
     var dt: Num
     var diffusion_consts: [Num] = []
     var reaction_funcs: [ ([Num]) -> [Num] ]
+    var sources: [[Int]:[Double]?] = [:] // dict with coord keys and chem change values. sponge if nil
     
     var test_concs: [Num] {
         [Num].init(repeating: 1.0, count: chem_cols.count)
@@ -113,20 +114,25 @@ struct Simulation {
         values = Grid(height: height, width: width, num_chems: chem_cols.count)
     }
     
-    mutating func create_circle(of chem_i: Int?, around position: [Int], diameter: Double, amount: Num) {
+    mutating func paint(chemical chem_i: Int?, around position: [Int], diameter: Double, amount: Num, shape: Brush_shape, is_source: Bool, brush_density: Double) {
         // if chem_i == nil, sponge up chemicals, else add the chosen one.
-        let coords = get_integs_in_circle(diameter: diameter)
-        var x = 0
-        var y = 0
+        let coords = get_coords(diameter: diameter, ring_fraction: 0.8, shape: shape, density: brush_density)
         
-        for xy in coords {
-            x = xy[0] + position[0]
-            y = xy[1] + position[1]
-            if is_point_valid(x, y) {
-                if let chemical = chem_i  {
-                    values[x, y].concs[chemical] += amount // add chemical
-                } else {
-                    values[x, y].concs = [Num](repeating: 0.0, count: chem_cols.count) // sponge
+        if is_source {
+            
+            
+            
+        } else {
+            for xy in coords {
+                let x = xy[0] + position[0]
+                let y = xy[1] + position[1]
+                if is_point_valid(x, y) {
+                    if let chemical = chem_i  {
+                        let d2 = (diameter*diameter)*0.1
+                        values[x, y].concs[chemical] += (shape != .gaussian) ? amount : amount * exp(-Double(xy[0]*xy[0] + xy[1]*xy[1])/d2) // add chemical
+                    } else {
+                        values[x, y].concs = [Num](repeating: 0.0, count: chem_cols.count) // sponge
+                    }
                 }
             }
         }
@@ -251,7 +257,7 @@ struct Simulation {
                     var is_positive = true
                     results = new_values[x,y].concs
                     for i in chem_idxs {
-                        results[i] += f_val[i] * dt
+                        results[i] += f_val[i] * dt / (1+concs[i]*concs[i])
                         if results[i] < 0 {
                             is_positive = false
                             break // can't react if it would make a negative so skip the reaction.
@@ -269,7 +275,7 @@ struct Simulation {
     
     func reactionHARDCODED() -> Grid {
         let rates: [Num] = [0.5, 0.03, 0.1]
-        func expr1(_ a: Num, _ b: Num, _ p: Num) -> Num { return -rates[0] * a*b*b + rates[1] * pow(b, 3) }
+        func expr1(_ a: Num, _ b: Num, _ p: Num) -> Num { return -rates[0] * a*b*b + rates[1] * b*b*b }
         func expr2(_ a: Num, _ b: Num, _ p: Num) -> Num { return -rates[2] * b }
         var new_values = values
         var concs: [Num]

@@ -37,20 +37,41 @@ func get_integs_in_circle(diameter: Double) -> [[Int]] {
     return coords
 }
 
-func get_integs_in_quarter_circle(radius: Double) -> [[Int]] {
-    // positive quarter, and excludes (0,0)
+func get_coords(diameter: Double, ring_fraction: Double, shape: Brush_shape, density: Double) -> [[Int]] {
+    let radius = diameter/2
     let r2 = radius * radius
-    let range = 0 ... Int(radius)
-    var coords: [[Int]] = []
+    let range = -Int(radius) ... Int(radius)
+    var ans: [[Int]] = []
     
-    for x in range {
-        for y in range {
-            if x==0 && y==0 {continue}
-            if Double(x*x + y*y) <= r2 { coords.append([x,y]) }
+    switch shape {
+    case .circle, .gaussian:
+        for x in range {
+            let x2 = x*x
+            for y in range {
+                if (Double.random(in: 0...1) < density) && Double(x2 + y*y) < r2 { ans.append([x,y]) }
+            }
         }
+        
+    case .square:
+        for x in range {
+            for y in range {
+                if (Double.random(in: 0...1) < density) { ans.append([x,y]) }
+            }
+        }
+        
+    case .ring:
+        let r_min2 = ring_fraction * ring_fraction * r2
+        for x in range {
+            for y in range {
+                let x2y2 = Double(x*x + y*y)
+                if (Double.random(in: 0...1) < density) && x2y2 < r2 && x2y2 >= r_min2 { ans.append([x,y]) }
+            }
+        }
+    
     }
-    return coords
+    return ans
 }
+
 
 func get_chems_from_eqns(from eqn_list: [String]) -> [String] {
     var chem_list: [String] = []

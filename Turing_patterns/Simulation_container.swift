@@ -27,6 +27,11 @@ struct Simulation_container: View {
     
     var brush_size: Double
     var is_sponge: Bool
+    var brush_density: Double
+    var brush_amount: Num
+    var brush_shape: Brush_shape
+    var is_source: Bool
+    
     var brush_chem_i_dbl: Double
     var brush_chem_i: Int? {
         if is_sponge { return nil }
@@ -46,7 +51,7 @@ struct Simulation_container: View {
     let dt_default: Num = 0.1
 
     
-    init(drag_location: CoreFoundation.CGPoint = CGPoint.zero, brush_size: Double, brush_chem_i_dbl: Double, background_col_enum: Colour_enum, chem_cols: [Colour], dt_str: String, is_sponge: Bool, chems: [String], equation_list: [String], rate_list: [[Num]]) {
+    init(drag_location: CoreFoundation.CGPoint = CGPoint.zero, brush_size: Double, brush_chem_i_dbl: Double, background_col_enum: Colour_enum, chem_cols: [Colour], dt_str: String, is_sponge: Bool, chems: [String], equation_list: [String], rate_list: [[Num]], brush_density: Double, brush_shape: Brush_shape, is_source: Bool, brush_amount: Num) {
         
         self.simulation = Simulation(height: sim_size[0], width: sim_size[1], chem_cols: chem_cols, dt: 0.1, background_col_enum: background_col_enum, chems: chems, equation_list: equation_list, rate_list: rate_list)
         self.drag_location = drag_location
@@ -54,6 +59,10 @@ struct Simulation_container: View {
         self.brush_chem_i_dbl = brush_chem_i_dbl
         self.dt_str = dt_str
         self.is_sponge = is_sponge
+        self.brush_density = brush_density
+        self.brush_shape = brush_shape
+        self.is_source = is_source
+        self.brush_amount = brush_amount
     }
     
     var body: some View {
@@ -65,7 +74,7 @@ struct Simulation_container: View {
             
             // chemical brush:
                 .onChange(of: drag_location) { oldValue, newValue in
-                    simulation.create_circle(of: brush_chem_i, around: [Int(newValue.x), Int(newValue.y)], diameter: brush_size, amount: 1.0)
+                    simulation.paint(chemical: brush_chem_i, around: [Int(newValue.x), Int(newValue.y)], diameter: brush_size, amount: brush_amount, shape: brush_shape, is_source: is_source, brush_density: brush_density)
                 }
             
             // time stepper:

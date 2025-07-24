@@ -1,5 +1,7 @@
 A reaction-diffusion simulation which the user can interact with by dragging a brush to place different chemicals. Diffusion and chemical reactions are simulated, and the latter can be specified by the user.
 
+I believe Turing patterns occur when, using the default equations, the diffusion constant of chemical B is set to 4.5 and chemical B (green) is painted on the canvas.
+
 Hidden features:
 * Press space to pause/play simulation
 * If the number of chemicals is less than 4, the concentrations of each are displayed using one chemical per colour channel (RGB or CYM) and the colour pickers cannot be changed. Otherwise, the colour of the chemical with the highest concentration is shown at each pixel.

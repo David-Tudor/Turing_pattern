@@ -8,7 +8,6 @@
 // TODO
 // currently, some thing init'd assuming the default chemical equations.
 // prevent negative colours
-// make permanent chem sources?
 // SIMD?
 // make chem equations to simulation better
 // conc to colour sensitivity
@@ -16,25 +15,40 @@
 // could make a non real time one.
 // maybe look at metal
 // make RK4, not Euler method. prio timer bug. run time step on a single non-main core?
+// single vs double - no effect!!? <- in readme, make a list of stuff ive done but isnt in the final code.
 
-// NEXT test single vs double, test simd
+
+// NEXT test simd, TEST CRASH SOURCE, make sources work
+// make permanent chem sources? gradient brush, amount slider
 
 
 import SwiftUI
 import SwiftData
+
+enum Brush_shape {
+    case circle
+    case square
+    case ring
+    case gaussian
+}
 
 struct ContentView: View {
     @StateObject var chemicals = Chemical_eqns()
     @FocusState private var is_focused: Bool
     
     @State private var brush_size = 20.0
+    @State private var brush_density = 1.0
+    @State private var brush_amount: Num = 1.0
+    @State private var brush_shape = Brush_shape.circle
+    @State private var is_sponge = false
+    @State private var is_source = false
     @State private var brush_chem_i_dbl = 0.0
     var brush_chem_i: Int {
         Int(brush_chem_i_dbl)
     }
     @State private var dt_str = "0.1"
     @State private var is_darkmode = true
-    @State private var is_sponge = false
+    
     
     let slider_length = 250
     
@@ -47,6 +61,26 @@ struct ContentView: View {
                 Text("Brush size")
                 Slider(value: $brush_size, in: 1...50)
                     .frame(width: CGFloat(slider_length))
+                
+                // Slider for brush density
+                Text("Brush density")
+                Slider(value: $brush_density, in: 0...1.0)
+                    .frame(width: CGFloat(slider_length))
+                
+                // Slider for brush amount
+                Text("Brush amount")
+                Slider(value: $brush_amount, in: 0...5.0)
+                    .frame(width: CGFloat(slider_length))
+                
+                HStack {
+                    Picker("Brush shape", selection: $brush_shape) {
+                        Text("Circle").tag(Brush_shape.circle)
+                        Text("Square").tag(Brush_shape.square)
+                        Text("Ring").tag(Brush_shape.ring)
+                        Text("Gaussian").tag(Brush_shape.gaussian)
+                    }
+                }.frame(width: CGFloat(slider_length))
+                
                 
                 // Slider for brush type
                 HStack {
@@ -119,7 +153,7 @@ struct ContentView: View {
             }
             
             VStack {
-                Simulation_container(brush_size: brush_size, brush_chem_i_dbl: brush_chem_i_dbl, background_col_enum: chemicals.background_col_enum, chem_cols: chemicals.chem_cols, dt_str: dt_str, is_sponge: is_sponge, chems: chemicals.chems, equation_list: chemicals.equation_list, rate_list: chemicals.rate_list)
+                Simulation_container(brush_size: brush_size, brush_chem_i_dbl: brush_chem_i_dbl, background_col_enum: chemicals.background_col_enum, chem_cols: chemicals.chem_cols, dt_str: dt_str, is_sponge: is_sponge, chems: chemicals.chems, equation_list: chemicals.equation_list, rate_list: chemicals.rate_list, brush_density: brush_density, brush_shape: brush_shape, is_source: is_source, brush_amount: brush_amount)
                 
             } // end of 2nd column VStack
 
