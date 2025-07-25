@@ -9,17 +9,16 @@
 // currently, some thing init'd assuming the default chemical equations.
 // prevent negative colours
 // SIMD?
-// make chem equations to simulation better
 // conc to colour sensitivity
 // why does refresh time = calc time + dt?
 // could make a non real time one.
 // maybe look at metal
 // make RK4, not Euler method. prio timer bug. run time step on a single non-main core?
 // single vs double - no effect!!? <- in readme, make a list of stuff ive done but isnt in the final code.
+// Make diffusion act many times per step, RK4 option, increase chem scale amount so diffusion goes further and colour sensitivity
 
 
-// NEXT test simd, TEST CRASH SOURCE, make sources work
-// make permanent chem sources? gradient brush, amount slider
+// NEXT test simd
 
 
 import SwiftUI
@@ -36,7 +35,7 @@ struct ContentView: View {
     @StateObject var chemicals = Chemical_eqns()
     @FocusState private var is_focused: Bool
     
-    @State private var brush_size = 20.0
+    @State private var brush_size = 40.0
     @State private var brush_density = 1.0
     @State private var brush_amount: Num = 1.0
     @State private var brush_shape = Brush_shape.circle
@@ -51,6 +50,7 @@ struct ContentView: View {
     
     
     let slider_length = 250
+    let longer_length = 300
     
     var body: some View {
         
@@ -59,7 +59,7 @@ struct ContentView: View {
             VStack(alignment: .leading) {
                 // Slider for brush size
                 Text("Brush size")
-                Slider(value: $brush_size, in: 1...50)
+                Slider(value: $brush_size, in: 1...70)
                     .frame(width: CGFloat(slider_length))
                 
                 // Slider for brush density
@@ -88,6 +88,8 @@ struct ContentView: View {
                     Coloured_square(size: CGFloat(10), rgb: is_sponge ? rgb_for(col: chemicals.background_col_enum) : chemicals.chem_cols[(brush_chem_i < chemicals.chem_cols.count) ? brush_chem_i : 0])
                     Divider()
                     Toggle("Use sponge", isOn: $is_sponge)
+                    Divider()
+                    Toggle("Make source", isOn: $is_source)
                 }
                 .frame(height: 20)
                 .onChange(of: chemicals.chem_cols.count) { _, newValue in

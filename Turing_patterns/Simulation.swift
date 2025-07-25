@@ -21,7 +21,7 @@ struct Simulation {
     var dt: Num
     var diffusion_consts: [Num] = []
     var reaction_funcs: [ ([Num]) -> [Num] ]
-    var sources: [[Int]:[Double]?] = [:] // dict with coord keys and chem change values. sponge if nil
+    var sources: [[Int]:[Double]] = [:] // dict with coord keys and chem change values. sponge if negative (impossible value)
     
     var test_concs: [Num] {
         [Num].init(repeating: 1.0, count: chem_cols.count)
@@ -61,16 +61,16 @@ struct Simulation {
         
         for x in 0 ..< width {
             for y in 0 ..< height {
-                // move 0 check to the start? add mode option?
-                
                 if values[x,y].concs.allSatisfy({$0 == 0.0}) {
                     pixel_data[(y * width) + x] = background_pixel
+                    
                 } else if chem_cols.count <= 3 {
                     pixel_data[(y * width) + x] = make_PixelData(rgb: concs_to_colours(concs: values[x,y].concs))
+                    
                 } else {
                     // show most concentrated chemical
                     guard let i = find_idx_of_max(of: values[x,y].concs) else {
-                        continue // pixel is left as background (grey) if all concs are zero
+                        continue // pixel is left as background if all concs are zero
                     }
                     pixel_data[(y * width) + x] = make_PixelData(rgb: chem_cols[i])
                 }
@@ -97,7 +97,7 @@ struct Simulation {
         
         for i in 0 ..< concs.count {
             c = concs[i]
-            col[i] += sign * Int( 256 * c/(c+0.1) )
+            col[i] += sign * Int( 255 * c/(c+0.1) )
         }
         return col
     }
@@ -111,36 +111,74 @@ struct Simulation {
     }
     
     mutating func clear_values() {
+        sources = [:]
         values = Grid(height: height, width: width, num_chems: chem_cols.count)
+        
     }
+    
+    mutating func time_step() {
+        for _ in 0..<2{
+            values = diffusion()
+        }
+
+        values = reaction()
+        if sources != [:] { values = source_calc() }
+    }
+    
+    // Painting
     
     mutating func paint(chemical chem_i: Int?, around position: [Int], diameter: Double, amount: Num, shape: Brush_shape, is_source: Bool, brush_density: Double) {
         // if chem_i == nil, sponge up chemicals, else add the chosen one.
         let coords = get_coords(diameter: diameter, ring_fraction: 0.8, shape: shape, density: brush_density)
+        let d2 = (diameter*diameter)*0.1
+        let zeros = [Num].init(repeating: 0.0, count: chem_cols.count)
+        let negatives = [Num].init(repeating: -1.0, count: chem_cols.count) // a negative source will be a sponge sink
         
-        if is_source {
-            
-            
-            
-        } else {
-            for xy in coords {
-                let x = xy[0] + position[0]
-                let y = xy[1] + position[1]
-                if is_point_valid(x, y) {
-                    if let chemical = chem_i  {
-                        let d2 = (diameter*diameter)*0.1
-                        values[x, y].concs[chemical] += (shape != .gaussian) ? amount : amount * exp(-Double(xy[0]*xy[0] + xy[1]*xy[1])/d2) // add chemical
-                    } else {
-                        values[x, y].concs = [Num](repeating: 0.0, count: chem_cols.count) // sponge
-                    }
+        for xy in coords {
+            let x = xy[0] + position[0]
+            let y = xy[1] + position[1]
+            if is_point_valid(x, y) {
+                // add to value directly
+                if let chemical = chem_i  {
+                    values[x, y].concs[chemical] += (shape != .gaussian) ? amount : amount * exp(-Double(xy[0]*xy[0] + xy[1]*xy[1])/d2) // add chemical
+                } else {
+                    values[x, y].concs = [Num](repeating: 0.0, count: chem_cols.count) // sponge
+                }
+                
+                // option to also make a source/sink
+                if is_source {
+                    // run this 'if' block on each valid coordinate
+                    let pos = [x,y]
+                    if let chemical = chem_i {
+                        // ensure dict key exists
+                        if let _ = sources[pos] {} else {
+                            sources[pos] = zeros
+                        }
+
+                        if (sources[pos]!.first! >= 0.0) {
+                            sources[pos]![chemical] += (shape != .gaussian) ? amount : amount * exp(-Double(xy[0]*xy[0] + xy[1]*xy[1])/d2) // '!!' as we checked key exists and val exists
+                        }
+                    } else { sources[pos] = negatives }
                 }
             }
         }
     }
     
-    mutating func time_step() {
-        values = diffusion()
-        values = reaction()
+    func source_calc() -> Grid {
+        let zeros = [Num](repeating: 0.0, count: chem_cols.count)
+        var new_values = values
+        
+        for (pos, amt) in sources {
+            let x = pos[0]
+            let y = pos[1]
+            if amt.first! >= 0.0 {
+                new_values[x,y].concs = zip(new_values[x,y].concs, amt).map(+)
+            } else {
+                new_values[x,y].concs = zeros
+            }
+        }
+        
+        return new_values
     }
     
     // Diffusion functions
@@ -204,7 +242,7 @@ struct Simulation {
                 }
             }
         }
-        
+    
         return newGrid
     }
 
