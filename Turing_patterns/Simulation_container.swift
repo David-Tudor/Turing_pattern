@@ -28,7 +28,7 @@ struct Simulation_container: View {
     var brush_size: Double
     var is_sponge: Bool
     var brush_density: Double
-    var brush_amount: Num
+    var brush_amount: Double
     var brush_shape: Brush_shape
     var is_source: Bool
     
@@ -38,8 +38,8 @@ struct Simulation_container: View {
         else { return Int(brush_chem_i_dbl) }
     }
     var dt_str: String
-    var dt: Num {
-        let d = Num(dt_str.trimmingCharacters(in: .whitespacesAndNewlines))
+    var dt: Double {
+        let d = Double(dt_str.trimmingCharacters(in: .whitespacesAndNewlines))
         if d != nil && d! > 0 {
             return d!
         } else {
@@ -48,10 +48,10 @@ struct Simulation_container: View {
     }
     
     let sim_size = [250, 250]
-    let dt_default: Num = 0.1
+    let dt_default: Double = 0.1
 
     
-    init(drag_location: CoreFoundation.CGPoint = CGPoint.zero, brush_size: Double, brush_chem_i_dbl: Double, background_col_enum: Colour_enum, chem_cols: [Colour], dt_str: String, is_sponge: Bool, chems: [String], equation_list: [String], rate_list: [[Num]], brush_density: Double, brush_shape: Brush_shape, is_source: Bool, brush_amount: Num) {
+    init(drag_location: CoreFoundation.CGPoint = CGPoint.zero, brush_size: Double, brush_chem_i_dbl: Double, background_col_enum: Colour_enum, chem_cols: [Colour], dt_str: String, is_sponge: Bool, chems: [String], equation_list: [String], rate_list: [[Double]], brush_density: Double, brush_shape: Brush_shape, is_source: Bool, brush_amount: Double) {
         
         self.simulation = Simulation(height: sim_size[0], width: sim_size[1], chem_cols: chem_cols, dt: 0.1, background_col_enum: background_col_enum, chems: chems, equation_list: equation_list, rate_list: rate_list)
         self.drag_location = drag_location
@@ -103,7 +103,7 @@ struct Simulation_container: View {
                 .onChange(of: chemicals.background_col_enum, {simulation.background_col = rgb_for(col: chemicals.background_col_enum)})
                 .onChange(of: chemicals.chem_cols, {simulation.chem_cols = chemicals.chem_cols})
                 .onChange(of: chemicals.is_sim_running, {simulation.is_running = chemicals.is_sim_running})
-                .onChange(of: chemicals.chem_cols.count, {simulation.values = Grid(height: sim_size[0], width: sim_size[1], num_chems: chemicals.chem_cols.count)})
+                .onChange(of: chemicals.chem_cols.count, {simulation.values = Grid(height: sim_size[0], width: sim_size[1], num_chems: chemicals.chem_cols.count); simulation.num_chems = chemicals.chem_cols.count})
                 .onChange(of: chemicals.equation_list, {simulation.reaction_funcs = make_reaction_functions(chems: chemicals.chems, equation_list: chemicals.equation_list, rate_list: chemicals.rate_list)})
                 .onChange(of: chemicals.rate_list, {simulation.reaction_funcs = make_reaction_functions(chems: chemicals.chems, equation_list: chemicals.equation_list, rate_list: chemicals.rate_list)})
             

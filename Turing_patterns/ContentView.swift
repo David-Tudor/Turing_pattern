@@ -38,7 +38,7 @@ struct ContentView: View {
     
     @State private var brush_size = 40.0
     @State private var brush_density = 1.0
-    @State private var brush_amount: Num = 1.0
+    @State private var brush_amount: Double = 1.0
     @State private var brush_shape = Brush_shape.circle
     @State private var is_sponge = false
     @State private var is_source = false

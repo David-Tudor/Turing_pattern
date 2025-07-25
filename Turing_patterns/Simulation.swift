@@ -19,14 +19,16 @@ struct Simulation {
     var values: Grid
     var is_running = false
     var background_col: Colour // if white (255,...), cym used, else rgb or specified colours
-    var dt: Num
-    var diffusion_consts: [Num] = []
-    var reaction_funcs: [ ([Num]) -> [Num] ]
+    var dt: Double
+    var diffusion_consts: [Double] = []
+    var reaction_funcs: [ ([Double]) -> [Double] ]
     var sources: [[Int]:[Double]] = [:] // dict with coord keys and chem change values. sponge if negative (impossible value)
+    var eqn_coeffs_list: [[[Int]]]
+    var rate_list: [[Double]]
     
     
-    var test_concs: [Num] {
-        [Num].init(repeating: 1.0, count: num_chems)
+    var test_concs: [Double] {
+        [Double].init(repeating: 1.0, count: num_chems)
     }
     
     var test_results_all: [[Bool]] {
@@ -47,7 +49,7 @@ struct Simulation {
         return ans
     }
     
-    init(height: Int, width: Int, chem_cols: [Colour], dt: Num, background_col_enum: Colour_enum, chems: [String], equation_list: [String], rate_list: [[Num]]) {
+    init(height: Int, width: Int, chem_cols: [Colour], dt: Double, background_col_enum: Colour_enum, chems: [String], equation_list: [String], rate_list: [[Double]]) {
         self.height = height
         self.width = width
         self.dt = dt
@@ -56,6 +58,15 @@ struct Simulation {
         self.chem_cols = []
         self.reaction_funcs = make_reaction_functions(chems: chems, equation_list: equation_list, rate_list: rate_list)
         self.num_chems = chem_cols.count
+        self.eqn_coeffs_list = make_eqn_coeffs_list(chems: chems, equation_list: equation_list)
+        self.rate_list = rate_list
+    }
+    
+    mutating func time_step() {
+//        values = diffusion(values)
+//        values = reaction(values)
+        values = reactionSIMD(values)
+        if sources != [:] { values = source_calc() }
     }
     
     func export_to_view() -> some View {
@@ -84,9 +95,9 @@ struct Simulation {
         return Image(cgimage, scale: 1, label: Text(""))
     }
     
-    func concs_to_colours(concs: [Num]) -> Colour {
+    func concs_to_colours(concs: [Double]) -> Colour {
         // returns a rgb or cym Colour. concs of different chemicals change independent channels (so assumes <= 3 concs)
-        var c: Num = 0.0
+        var c: Double = 0.0
         
         var col: [Int]
         let sign: Int
@@ -117,12 +128,6 @@ struct Simulation {
         sources = [:]
         values = Grid(height: height, width: width, num_chems: num_chems)
         
-    }
-    
-    mutating func time_step() {
-        values = diffusion(values)
-        values = reaction(values)
-        if sources != [:] { values = source_calc() }
     }
     
     // Diffusion functions
@@ -182,7 +187,7 @@ struct Simulation {
             for x in 0..<width {
                 let key = yw + x
                 for i in 0..<num_chems {
-                    new_values[x, y].concs[i] = max(0.0, Num(src[i][key] + dst[i][key] * Ddts[i]))
+                    new_values[x, y].concs[i] = max(0.0, Double(src[i][key] + dst[i][key] * Ddts[i]))
                 }
             }
         }
@@ -192,7 +197,7 @@ struct Simulation {
 
     
     func diffusionOLD(_ my_values: Grid) -> Grid {
-//        let zeros = [Num](repeating: 0.0, count: num_chems)
+//        let zeros = [Double](repeating: 0.0, count: num_chems)
         var new_values = my_values
 //        var lap = zeros
         let Ddts = diffusion_consts.map{$0 * dt}
@@ -219,55 +224,48 @@ struct Simulation {
     func reaction(_ my_values: Grid) -> Grid {
         // AWKWARD TO MAKE RK4 GIVEN SOME REACTIONS DONT HAPPEN IF NEGATIVE, run reaction per functions?
         var new_values = my_values
-        var results = [Num].init(repeating: 0.0, count: num_chems)
+        var results = [Double].init(repeating: 0.0, count: num_chems)
         
-//        let clock = ContinuousClock()
-//        var times: [Duration] = [.seconds(0), .seconds(0)]
-//        
-//        let total = clock.measure {
-            for (f_i, f) in reaction_funcs.enumerated() {
-                // Test for which chems f(x)=0 so those can be skipped:
-                let chem_idxs = chem_idxs_all[f_i] // skip chemicals where LHS coeff = RHS coeff.
-                if chem_idxs.isEmpty { continue } // if rate=0, f(x)=0 so no reactions/changes needed
-                
-                for x in 0 ..< width {
-                    for y in 0 ..< height {
-                        let concs = my_values[x,y].concs
-//                        times[0] += clock.measure {
-                            let f_val = f(concs)
-                            
-                            var is_positive = true
-//                            times[1] += clock.measure {
-                                results = new_values[x,y].concs
-                                for i in chem_idxs {
-                                    results[i] += f_val[i] * dt / (1+concs[i]*concs[i])
-                                    if results[i] < 0 {
-                                        is_positive = false
-                                        break // can't react if it would make a negative so skip the reaction.
-                                    }
-                                }
-                                if is_positive {
-                                    new_values[x,y].concs = results
-                                }
-//                            }
-//                        }
-//                    }
+        for (f_i, f) in reaction_funcs.enumerated() {
+            // Test for which chems f(x)=0 so those can be skipped:
+            let chem_idxs = chem_idxs_all[f_i] // skip chemicals where LHS coeff = RHS coeff.
+            if chem_idxs.isEmpty { continue } // if rate=0, f(x)=0 so no reactions/changes needed
+            
+            for x in 0 ..< width {
+                for y in 0 ..< height {
+                    let concs = my_values[x,y].concs
+                    let f_val = f(concs)
+                    
+                    var is_positive = true
+                    
+                    results = new_values[x,y].concs
+                    for i in chem_idxs {
+                        results[i] += f_val[i] * dt / (1+concs[i]*concs[i])
+                        if results[i] < 0 {
+                            is_positive = false
+                            break // can't react if it would make a negative so skip the reaction.
+                        }
+                    }
+                    if is_positive {
+                        new_values[x,y].concs = results
+                    }
+                    
                 }
             }
         }
-//        print(duration_to_dbl(total), duration_to_dbl(times[0]),  duration_to_dbl(times[1]))
+        
         return new_values
     }
     
     
     func reactionHARDCODED(_ my_values: Grid) -> Grid {
-        let rates: [Num] = [0.5, 0.03, 0.1]
-        func expr1(_ a: Num, _ b: Num, _ p: Num) -> Num { return -rates[0] * a*b*b + rates[1] * b*b*b }
-        func expr2(_ a: Num, _ b: Num, _ p: Num) -> Num { return -rates[2] * b }
+        let rates: [Double] = [0.5, 0.03, 0.1]
+        func expr1(_ a: Double, _ b: Double, _ p: Double) -> Double { return -rates[0] * a*b*b + rates[1] * b*b*b }
+        func expr2(_ a: Double, _ b: Double, _ p: Double) -> Double { return -rates[2] * b }
         var new_values = values
-        var concs: [Num]
-        var val1: Num
-        var val2: Num
+        var concs: [Double]
+        var val1: Double
+        var val2: Double
         for x in 0 ..< width {
             for y in 0 ..< height { // can't use a matrix as not linear e.g. in b. what else?
                 concs = my_values[x,y].concs
@@ -287,14 +285,100 @@ struct Simulation {
         return new_values
     }
     
+    func powSIMD(_ x: simd_double4x4, _ n: Int) -> simd_double4x4 {
+        switch n {
+        case 0: let a = simd_double4(x: 1, y: 1, z: 1, w: 1); return simd_double4x4([a,a,a,a])
+        case 1: return x
+        case 2: return x * x
+        case 3: return x * x * x
+        case 4: let x2 = x * x; return x2 * x2
+        default:
+            var ans: simd_double4x4 = x
+            for _ in 0..<n-1 { ans *= x }
+            return ans
+        }
+    }
+    
+    func reactionSIMD(_ my_values: Grid) -> Grid {
+        var new_values = my_values
+        
+        for (eqn_i, eqn_coeffs) in eqn_coeffs_list.enumerated() {
+            new_values = react(new_values, eqn_coeffs[0], eqn_coeffs[1], rate_list[eqn_i][0])
+            new_values = react(new_values, eqn_coeffs[1], eqn_coeffs[0], rate_list[eqn_i][1])
+        }
+        return new_values
+    }
+    
+    func react(_ my_values: Grid, _ lhs_coeffs: [Int], _ rhs_coeffs: [Int], _ k: Double) -> Grid {
+        if k == 0.0 { return my_values }
+        
+        var new_values = my_values
+        let num_cells = width*height
+        let stride = 16
+
+        let val_init = k * dt
+        let M_init = simd_double4x4([simd_double4(repeating: val_init),simd_double4(repeating: val_init),simd_double4(repeating: val_init),simd_double4(repeating: val_init)])
+        let zero_vec = [Double].init(repeating: 0.0, count: stride)
+//        let zeros = simd_double4x4(diagonal: simd_double4(repeating: 0.0))
+        
+        
+        var i = 0
+        while i < num_cells {
+            var conc_store: [simd_double4x4] = []
+            
+            var term = M_init
+            for chem_i in 0..<num_chems {
+                // get concs and ensure they exist, else 0.
+                var temp = zero_vec
+                if i+15 < num_cells {
+                    for j in 0..<stride {
+                        temp[j] = my_values[i+j].concs[chem_i]
+                    }
+                } else {
+                    for j in 0..<(num_cells-i) {
+                        temp[j] = my_values[i+j].concs[chem_i]
+                    } // relies on temp init'd to zero
+                }
+                
+                // turn into a matrix
+                let M = simd_double4x4([simd_double4(temp[0 ], temp[1 ], temp[2 ], temp[3 ]),
+                                        simd_double4(temp[4 ], temp[5 ], temp[6 ], temp[7 ]),
+                                        simd_double4(temp[8 ], temp[9 ], temp[10], temp[11]),
+                                        simd_double4(temp[12], temp[13], temp[14], temp[15])])
+                
+                conc_store.append(M)
+                term *= powSIMD(M, lhs_coeffs[chem_i])
+                
+            }
+            let M = conc_store.last!
+            if term[0][0] != 0.0 {print("\n\n!!!\n\(M)\n\(M*M)\n\(simd_mul(M,M))\n\(term)")}
+            
+            for chem_i in 0..<num_chems {
+                let new_values_M = conc_store[chem_i] //+ Double(rhs_coeffs[chem_i] - lhs_coeffs[chem_i]) * term
+
+                if i+15 < num_cells {
+                    for j in 0..<stride {
+                        new_values[i+j].concs[chem_i] = max(0.0, Double(new_values_M[j/4][j%4]))
+                    }
+                } else {
+                    for j in 0..<(num_cells-i) {
+                        new_values[i+j].concs[chem_i] = max(0.0, Double(new_values_M[j/4][j%4]))
+                    }
+                }
+            }
+            i += stride
+        }
+        return new_values
+    }
+    
     // Painting
     
-    mutating func paint(chemical chem_i: Int?, around position: [Int], diameter: Double, amount: Num, shape: Brush_shape, is_source: Bool, brush_density: Double) {
+    mutating func paint(chemical chem_i: Int?, around position: [Int], diameter: Double, amount: Double, shape: Brush_shape, is_source: Bool, brush_density: Double) {
         // if chem_i == nil, sponge up chemicals, else add the chosen one.
         let coords = get_coords(diameter: diameter, ring_fraction: 0.8, shape: shape, density: brush_density)
         let d2 = (diameter*diameter)*0.1
-        let zeros = [Num].init(repeating: 0.0, count: num_chems)
-        let negatives = [Num].init(repeating: -1.0, count: num_chems) // a negative source will be a sponge sink
+        let zeros = [Double].init(repeating: 0.0, count: num_chems)
+        let negatives = [Double].init(repeating: -1.0, count: num_chems) // a negative source will be a sponge sink
         
         for xy in coords {
             let x = xy[0] + position[0]
@@ -304,7 +388,7 @@ struct Simulation {
                 if let chemical = chem_i  {
                     values[x, y].concs[chemical] += (shape != .gaussian) ? amount : amount * exp(-Double(xy[0]*xy[0] + xy[1]*xy[1])/d2) // add chemical
                 } else {
-                    values[x, y].concs = [Num](repeating: 0.0, count: num_chems) // sponge
+                    values[x, y].concs = [Double](repeating: 0.0, count: num_chems) // sponge
                 }
                 
                 // option to also make a source/sink
@@ -327,7 +411,7 @@ struct Simulation {
     }
     
     func source_calc() -> Grid {
-        let zeros = [Num](repeating: 0.0, count: num_chems)
+        let zeros = [Double](repeating: 0.0, count: num_chems)
         var new_values = values
         
         for (pos, amt) in sources {
@@ -355,8 +439,13 @@ struct Grid {
         set { values[(y * width) + x] = newValue }
     }
     
+    subscript(x: Int) -> Cell { // TODO USE THIS MORE
+        get { return values[x] }
+        set { values[x] = newValue }
+    }
+    
     init(height: Int, width: Int, num_chems: Int) {
-        let cell = Cell(concs: [Num](repeating: 0.0, count: num_chems))
+        let cell = Cell(concs: [Double](repeating: 0.0, count: num_chems))
         self.values = [Cell](repeating: cell, count: Int(height * width))
         self.height = height
         self.width = width
@@ -364,7 +453,7 @@ struct Grid {
 }
 
 struct Cell {
-    var concs: [Num]
+    var concs: [Double]
 }
 
 typealias Num = Double

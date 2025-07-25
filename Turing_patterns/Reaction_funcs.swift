@@ -28,7 +28,7 @@ func make_eqn_coeffs_list(chems: [String], equation_list: [String]) -> [[[Int]]]
     return eqn_coeffs_list
 }
 
-func my_pow(_ x: Num, _ n: Int) -> Num {
+func my_pow(_ x: Double, _ n: Int) -> Double {
     switch n {
     case 0: return 1
     case 1: return x
@@ -36,16 +36,16 @@ func my_pow(_ x: Num, _ n: Int) -> Num {
     case 3: return x * x * x
     case 4: let x2 = x * x; return x2 * x2
     default:
-        var ans: Num = 1.0
-        for _ in 0..<n { ans *= x }
+        var ans: Double = x
+        for _ in 0..<n-1 { ans *= x }
         return ans
     }
 }
 
-func make_reaction_func(k: Num, lhs_chem_coeffs: [Int], rhs_chem_coeffs: [Int]) -> ([Num]) -> [Num] {
+func make_reaction_func(k: Double, lhs_chem_coeffs: [Int], rhs_chem_coeffs: [Int]) -> ([Double]) -> [Double] {
     // given an equation, returns: a function of the chem concs which returns the d/dt of each chemical
     
-    let coeff_diffs = zip(lhs_chem_coeffs, rhs_chem_coeffs).map { (l,r) in Num(r-l) }
+    let coeff_diffs = zip(lhs_chem_coeffs, rhs_chem_coeffs).map { (l,r) in Double(r-l) }
     
     return { concs in
         var term = k
@@ -56,10 +56,10 @@ func make_reaction_func(k: Num, lhs_chem_coeffs: [Int], rhs_chem_coeffs: [Int]) 
     }
 }
 
-func make_reaction_functions(chems: [String], equation_list: [String], rate_list: [[Num]]) -> [ ([Num]) -> [Num] ] {
+func make_reaction_functions(chems: [String], equation_list: [String], rate_list: [[Double]]) -> [ ([Double]) -> [Double] ] {
     // eqn_coeffs_list is [ [eqn1 LHS coeffs, eqn1 RHS coeffs], [eqn2 LHS coeffs, eqn2 RHS coeffs], ...]
     // based on N equations, returns 2N (-> and <- reactions) lists of funcs. These lists contain the funcs for the ith chemical.
-    var reaction_funcs: [ ([Num]) -> [Num] ] = []
+    var reaction_funcs: [ ([Double]) -> [Double] ] = []
     let eqn_coeffs_list = make_eqn_coeffs_list(chems: chems, equation_list: equation_list)
     
     for eqn_i in 0..<eqn_coeffs_list.count {
