@@ -44,6 +44,7 @@ func my_pow(_ x: Num, _ n: Int) -> Num {
 
 func make_reaction_func(k: Num, lhs_chem_coeffs: [Int], rhs_chem_coeffs: [Int]) -> ([Num]) -> [Num] {
     // given an equation, returns: a function of the chem concs which returns the d/dt of each chemical
+    
     let coeff_diffs = zip(lhs_chem_coeffs, rhs_chem_coeffs).map { (l,r) in Num(r-l) }
     
     return { concs in
