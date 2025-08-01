@@ -105,7 +105,10 @@ struct Simulation_container: View {
                 .onChange(of: chemicals.is_sim_running, {simulation.is_running = chemicals.is_sim_running})
                 .onChange(of: chemicals.chem_cols.count, {simulation.values = Grid(height: sim_size[0], width: sim_size[1], num_chems: chemicals.chem_cols.count); simulation.num_chems = chemicals.chem_cols.count})
                 .onChange(of: chemicals.equation_list, {simulation.reaction_funcs = make_reaction_functions(chems: chemicals.chems, equation_list: chemicals.equation_list, rate_list: chemicals.rate_list)})
-                .onChange(of: chemicals.rate_list, {simulation.reaction_funcs = make_reaction_functions(chems: chemicals.chems, equation_list: chemicals.equation_list, rate_list: chemicals.rate_list)})
+                .onChange(of: chemicals.rate_list, {
+                    simulation.reaction_funcs = make_reaction_functions(chems: chemicals.chems, equation_list: chemicals.equation_list, rate_list: chemicals.rate_list)
+                    simulation.rate_list = chemicals.rate_list
+                })
             
             HStack {
                 // Clear simulation button

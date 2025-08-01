@@ -63,9 +63,14 @@ struct Simulation {
     }
     
     mutating func time_step() {
-//        values = diffusion(values)
-//        values = reaction(values)
-        values = reactionSIMD(values)
+        let my_dt = 1.0
+        values = diffusion(values, my_dt)
+        
+//        values = reaction(values, my_dt)
+//        values = reactionSIMD(values, my_dt)
+//        values = reactionHARDCODED(values, my_dt)
+        values = reactionHARDCODED2(values, my_dt)
+        
         if sources != [:] { values = source_calc() }
     }
     
@@ -111,7 +116,8 @@ struct Simulation {
         
         for i in 0 ..< concs.count {
             c = concs[i]
-            let dbl = 255 * c/(c+0.1)
+//            let dbl = 255 * c/(c+0.1)
+            let dbl = min(255, 255*c)
             let b = dbl.isNaN
             col[i] += sign * (b ? 1 : Int(dbl))
             if b {print("ERROR INF COLOUR: c was \(c)")}
@@ -135,8 +141,8 @@ struct Simulation {
     
     // Diffusion functions
     
-    func diffusion(_ my_values: Grid) -> Grid {
-        let Ddts = diffusion_consts.map{Float($0 * dt)}
+    func diffusion(_ my_values: Grid, _ my_dt: Double) -> Grid {
+        let Ddts = diffusion_consts.map{Float($0 * my_dt)}
         var src = [[Float]].init(repeating: [Float].init(repeating: 0.0, count: height*width), count: num_chems)
         var dst = src
         for i in 0..<num_chems {
@@ -199,11 +205,11 @@ struct Simulation {
     }
 
     
-    func diffusionOLD(_ my_values: Grid) -> Grid {
+    func diffusionOLD(_ my_values: Grid, _ my_dt: Double) -> Grid {
 //        let zeros = [Double](repeating: 0.0, count: num_chems)
         var new_values = my_values
 //        var lap = zeros
-        let Ddts = diffusion_consts.map{$0 * dt}
+        let Ddts = diffusion_consts.map{$0 * my_dt}
         
         for y in 1 ..< height-1 { // ignore the edges
             for x in 1 ..< width-1 {
@@ -224,7 +230,7 @@ struct Simulation {
     
     // Reaction functions
     
-    func reaction(_ my_values: Grid) -> Grid {
+    func reaction(_ my_values: Grid, _ my_dt: Double) -> Grid {
         // AWKWARD TO MAKE RK4 GIVEN SOME REACTIONS DONT HAPPEN IF NEGATIVE, run reaction per functions?
         var new_values = my_values
         var results = [Double].init(repeating: 0.0, count: num_chems)
@@ -242,7 +248,7 @@ struct Simulation {
                     
                     results = new_values[x,y].concs
                     for i in chem_idxs {
-                        results[i] += f_val[i] * dt / (1+concs[i]*concs[i])
+                        results[i] += f_val[i] * my_dt / (1+concs[i]*concs[i])
                         if results[i] < 0 {
                             is_positive = false
                             break // can't react if it would make a negative so skip the reaction.
@@ -258,10 +264,9 @@ struct Simulation {
     }
     
     
-    func reactionHARDCODED(_ my_values: Grid) -> Grid {
-        let rates: [Double] = [0.5, 0.03, 0.1]
-        func expr1(_ a: Double, _ b: Double, _ p: Double) -> Double { return -rates[0] * a*b*b + rates[1] * b*b*b }
-        func expr2(_ a: Double, _ b: Double, _ p: Double) -> Double { return -rates[2] * b }
+    func reactionHARDCODED(_ my_values: Grid, _ my_dt: Double) -> Grid {
+        func expr1(_ a: Double, _ b: Double, _ p: Double) -> Double { return -rate_list[0][0] * a*b*b + rate_list[0][1] * b*b*b }
+        func expr2(_ a: Double, _ b: Double, _ p: Double) -> Double { return -rate_list[1][0] * b }
         var new_values = values
         var concs: [Double]
         var val1: Double
@@ -269,18 +274,50 @@ struct Simulation {
         for x in 0 ..< width {
             for y in 0 ..< height { // can't use a matrix as not linear e.g. in b. what else?
                 concs = my_values[x,y].concs
-                val1 = expr1(concs[0], concs[1], concs[2]) * dt
-                val2 = expr2(concs[0], concs[1], concs[2]) * dt
+            
+                    val1 = expr1(concs[0], concs[1], concs[2]) * my_dt
+                    val2 = expr2(concs[0], concs[1], concs[2]) * my_dt
+                    if new_values[x,y].concs[0] > -val1 && new_values[x,y].concs[1] > val1 { // only react if concs will stay positive
+                        new_values[x,y].concs[0] +=  val1
+                        new_values[x,y].concs[1] += -val1
+                    }
+                    if new_values[x,y].concs[1] > -val2 && new_values[x,y].concs[2] > val2 {
+                        new_values[x,y].concs[1] +=  val2
+                        new_values[x,y].concs[2] += -val2
+                    }
+                
+            }
+            
+        }
+        return new_values
+    }
+    
+    func reactionHARDCODED2(_ my_values: Grid, _ my_dt: Double) -> Grid {
+        let f = 0.0545
+        let k = 0.062
+        func expr1(_ a: Double, _ b: Double) -> Double { return -a*b*b }
+        func expr2(_ a: Double, _ b: Double) -> Double { return f * (1-a) }
+        func expr3(_ a: Double, _ b: Double) -> Double { return -(f+k) * b }
+        var new_values = values
+        var concs: [Double]
+        for x in 0 ..< width {
+            for y in 0 ..< height {
+                concs = my_values[x,y].concs
+                
+                let val1 = expr1(concs[0], concs[1]) * my_dt
+                let val2 = expr2(concs[0], concs[1]) * my_dt
+                let val3 = expr3(concs[0], concs[1]) * my_dt
                 if new_values[x,y].concs[0] > -val1 && new_values[x,y].concs[1] > val1 { // only react if concs will stay positive
                     new_values[x,y].concs[0] +=  val1
                     new_values[x,y].concs[1] += -val1
                 }
-                if new_values[x,y].concs[1] > -val2 && new_values[x,y].concs[2] > val2 {
-                    new_values[x,y].concs[1] +=  val2
-                    new_values[x,y].concs[2] += -val2
+                if new_values[x,y].concs[0] > -val2 {
+                    new_values[x,y].concs[0] +=  val2
+                }
+                if new_values[x,y].concs[1] > -val3 {
+                    new_values[x,y].concs[1] +=  val3
                 }
             }
-            
         }
         return new_values
     }
@@ -299,18 +336,18 @@ struct Simulation {
         }
     }
     
-    func reactionSIMD(_ my_values: Grid) -> Grid {
+    func reactionSIMD(_ my_values: Grid, _ my_dt: Double) -> Grid {
         var new_values = my_values
         
         for (eqn_i, eqn_coeffs) in eqn_coeffs_list.enumerated() {
-            new_values = react(new_values, eqn_coeffs[0], eqn_coeffs[1], rate_list[eqn_i][0])
-            new_values = react(new_values, eqn_coeffs[1], eqn_coeffs[0], rate_list[eqn_i][1])
+            new_values = react(new_values, eqn_coeffs[0], eqn_coeffs[1], rate_list[eqn_i][0], my_dt)
+            new_values = react(new_values, eqn_coeffs[1], eqn_coeffs[0], rate_list[eqn_i][1], my_dt)
         }
         print("there are \(eqn_coeffs_list.count * 2) calls")
         return new_values
     }
     
-    func react(_ my_values: Grid, _ lhs_coeffs: [Int], _ rhs_coeffs: [Int], _ k: Double) -> Grid {
+    func react(_ my_values: Grid, _ lhs_coeffs: [Int], _ rhs_coeffs: [Int], _ k: Double, _ my_dt: Double) -> Grid {
         if k == 0.0 { return my_values } // test if skip available
         
         var new_values = my_values
@@ -318,7 +355,7 @@ struct Simulation {
         let diffs = zip(lhs_coeffs, rhs_coeffs).map{Double($1-$0)}
         let stride = 64
 
-        let val_init = k * dt
+        let val_init = k * my_dt
         let V_init = SIMD64(repeating: val_init)
         let zero_vec = SIMD64(repeating: 0.0)
         let zero_vecs = [SIMD64<Double>].init(repeating: zero_vec, count: num_chems)

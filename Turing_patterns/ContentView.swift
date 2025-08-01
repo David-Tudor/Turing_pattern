@@ -19,8 +19,6 @@
 // remove Cell
 // REACTION not working correctly.
 
-// NEXT test simd
-
 
 import SwiftUI
 import SwiftData
