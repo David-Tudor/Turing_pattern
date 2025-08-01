@@ -17,7 +17,7 @@
 // single vs double - no effect!!? <- in readme, make a list of stuff ive done but isnt in the final code.
 // Make diffusion act many times per step, RK4 option, increase chem scale amount so diffusion goes further and colour sensitivity
 // remove Cell
-
+// REACTION not working correctly.
 
 // NEXT test simd
 

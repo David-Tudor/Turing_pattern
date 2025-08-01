@@ -111,7 +111,10 @@ struct Simulation {
         
         for i in 0 ..< concs.count {
             c = concs[i]
-            col[i] += sign * Int( 255 * c/(c+0.1) )
+            let dbl = 255 * c/(c+0.1)
+            let b = dbl.isNaN
+            col[i] += sign * (b ? 1 : Int(dbl))
+            if b {print("ERROR INF COLOUR: c was \(c)")}
         }
         return col
     }
@@ -235,7 +238,6 @@ struct Simulation {
                 for y in 0 ..< height {
                     let concs = my_values[x,y].concs
                     let f_val = f(concs)
-                    
                     var is_positive = true
                     
                     results = new_values[x,y].concs
@@ -249,11 +251,9 @@ struct Simulation {
                     if is_positive {
                         new_values[x,y].concs = results
                     }
-                    
                 }
             }
         }
-        
         return new_values
     }
     
@@ -285,15 +285,15 @@ struct Simulation {
         return new_values
     }
     
-    func powSIMD(_ x: simd_double4x4, _ n: Int) -> simd_double4x4 {
+    func powSIMD(_ x: SIMD64<Double>, _ n: Int) -> SIMD64<Double> {
         switch n {
-        case 0: let a = simd_double4(x: 1, y: 1, z: 1, w: 1); return simd_double4x4([a,a,a,a])
+        case 0: return SIMD64(repeating: 1.0)
         case 1: return x
         case 2: return x * x
         case 3: return x * x * x
         case 4: let x2 = x * x; return x2 * x2
         default:
-            var ans: simd_double4x4 = x
+            var ans = x
             for _ in 0..<n-1 { ans *= x }
             return ans
         }
@@ -306,68 +306,69 @@ struct Simulation {
             new_values = react(new_values, eqn_coeffs[0], eqn_coeffs[1], rate_list[eqn_i][0])
             new_values = react(new_values, eqn_coeffs[1], eqn_coeffs[0], rate_list[eqn_i][1])
         }
+        print("there are \(eqn_coeffs_list.count * 2) calls")
         return new_values
     }
     
     func react(_ my_values: Grid, _ lhs_coeffs: [Int], _ rhs_coeffs: [Int], _ k: Double) -> Grid {
-        if k == 0.0 { return my_values }
+        if k == 0.0 { return my_values } // test if skip available
         
         var new_values = my_values
         let num_cells = width*height
-        let stride = 16
+        let diffs = zip(lhs_coeffs, rhs_coeffs).map{Double($1-$0)}
+        let stride = 64
 
         let val_init = k * dt
-        let M_init = simd_double4x4([simd_double4(repeating: val_init),simd_double4(repeating: val_init),simd_double4(repeating: val_init),simd_double4(repeating: val_init)])
-        let zero_vec = [Double].init(repeating: 0.0, count: stride)
-//        let zeros = simd_double4x4(diagonal: simd_double4(repeating: 0.0))
+        let V_init = SIMD64(repeating: val_init)
+        let zero_vec = SIMD64(repeating: 0.0)
+        let zero_vecs = [SIMD64<Double>].init(repeating: zero_vec, count: num_chems)
         
+        let clock = ContinuousClock()
+        var time: Duration = .seconds(0)
         
-        var i = 0
-        while i < num_cells {
-            var conc_store: [simd_double4x4] = []
+        var cell_i = 0
+        while cell_i < num_cells {
+            var vec_store = zero_vecs
+            let is_not_near_end = (cell_i+stride-1 < num_cells)
             
-            var term = M_init
+            var term = V_init
             for chem_i in 0..<num_chems {
                 // get concs and ensure they exist, else 0.
-                var temp = zero_vec
-                if i+15 < num_cells {
-                    for j in 0..<stride {
-                        temp[j] = my_values[i+j].concs[chem_i]
+                
+                    var vec = zero_vec
+                    if is_not_near_end {
+                        for i in 0..<stride {
+                            vec[i] = my_values[cell_i+i].concs[chem_i]
+                        }
+                    } else {
+                        for i in 0..<(num_cells-cell_i) {
+                            vec[i] = my_values[cell_i+i].concs[chem_i]
+                        } // relies on temp init'd to zero
                     }
-                } else {
-                    for j in 0..<(num_cells-i) {
-                        temp[j] = my_values[i+j].concs[chem_i]
-                    } // relies on temp init'd to zero
-                }
-                
-                // turn into a matrix
-                let M = simd_double4x4([simd_double4(temp[0 ], temp[1 ], temp[2 ], temp[3 ]),
-                                        simd_double4(temp[4 ], temp[5 ], temp[6 ], temp[7 ]),
-                                        simd_double4(temp[8 ], temp[9 ], temp[10], temp[11]),
-                                        simd_double4(temp[12], temp[13], temp[14], temp[15])])
-                
-                conc_store.append(M)
-                term *= powSIMD(M, lhs_coeffs[chem_i])
-                
+                    
+                    vec_store[chem_i] = vec
+                    term *= powSIMD(vec, lhs_coeffs[chem_i])
             }
-            let M = conc_store.last!
-            if term[0][0] != 0.0 {print("\n\n!!!\n\(M)\n\(M*M)\n\(simd_mul(M,M))\n\(term)")}
             
-            for chem_i in 0..<num_chems {
-                let new_values_M = conc_store[chem_i] //+ Double(rhs_coeffs[chem_i] - lhs_coeffs[chem_i]) * term
-
-                if i+15 < num_cells {
-                    for j in 0..<stride {
-                        new_values[i+j].concs[chem_i] = max(0.0, Double(new_values_M[j/4][j%4]))
-                    }
-                } else {
-                    for j in 0..<(num_cells-i) {
-                        new_values[i+j].concs[chem_i] = max(0.0, Double(new_values_M[j/4][j%4]))
+            time += clock.measure {
+                for chem_i in 0..<num_chems {
+                    let new_values_V = vec_store[chem_i] + diffs[chem_i] * term // vec_store should be newvals? div by 1+c^2?
+                    if new_values_V.min() < 0 { continue }
+                    
+                    if is_not_near_end {
+                        for i in 0..<stride {
+                            new_values[cell_i+i].concs[chem_i] = Double(new_values_V[i])
+                        }
+                    } else {
+                        for i in 0..<(num_cells-cell_i) {
+                            new_values[cell_i+i].concs[chem_i] = Double(new_values_V[i])
+                        }
                     }
                 }
             }
-            i += stride
+            cell_i += stride
         }
+        print(duration_to_dbl(time))
         return new_values
     }
     
