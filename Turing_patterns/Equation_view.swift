@@ -11,10 +11,10 @@ import SwiftUI
 struct Equation_view: View {
     @EnvironmentObject var chemicals: Chemical_eqns
     
-    @State var rate_str_list = [[String]].init(repeating: ["0.0", "0.0"], count: 2)
+    @State var rate_str_list: [[String]]
     @State var eqn_list_local: [String] = []
-    @State var are_equations_valid: [Bool] = [true, true]
-    @State var are_rates_valid: [Bool] = [true, true]
+    @State var are_equations_valid: [Bool]
+    @State var are_rates_valid: [Bool]
     @State var has_excess_chemicals = false
     
     var are_values_invalid: Bool {
@@ -25,7 +25,15 @@ struct Equation_view: View {
     let eqn_length: CGFloat = 300
     let max_chems = 8 // disabled. Enable in update_eqns_valid()
     
+    init() {
+        let preset = Preset()
+        self.rate_str_list = [[String]].init(repeating: ["0.0", "0.0"], count: preset.num_eqns)
+        self.are_equations_valid = [Bool].init(repeating: true, count: preset.num_eqns)
+        self.are_rates_valid = [Bool].init(repeating: true, count: preset.num_eqns)
+    }
+    
     func update_eqns_valid() {
+// Max number of chems is currently disabled:
 //        if get_chems_from_eqns(from: eqn_list_local).count > max_chems {
 //            chemicals.are_eqns_up_to_date = false
 //            has_excess_chemicals = true
@@ -73,6 +81,14 @@ struct Equation_view: View {
             ans.append([kpm[0].description, kpm[1].description])
         }
         return ans
+    }
+    
+    func pull_data_from_chemicals() {
+        rate_str_list = rate_list_to_strs()
+        eqn_list_local = chemicals.equation_list
+        DispatchQueue.main.async {
+            chemicals.are_eqns_up_to_date = true
+        }
     }
     
     
@@ -142,13 +158,10 @@ struct Equation_view: View {
             chemicals.are_eqns_up_to_date = false
             update_rates_valid()
         })
+        
+        // init local arrays
         .onAppear {
-            rate_str_list = rate_list_to_strs()
-            eqn_list_local = chemicals.equation_list
-            DispatchQueue.main.async {
-                chemicals.are_eqns_up_to_date = true
-            }
-            
+            pull_data_from_chemicals()
         }
     }
 }

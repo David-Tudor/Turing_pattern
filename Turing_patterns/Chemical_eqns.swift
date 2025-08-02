@@ -9,15 +9,16 @@ import Foundation
 import SwiftUI
 
 class Chemical_eqns: ObservableObject {
-    @Published var equation_list: [String] = ["A + 2B -> 3B", "B -> P"]
-    @Published var rate_list: [[Double]] = [[1.0, 0.1], [0.4, 0.0]]
-    @Published var chems: [String] = ["A", "B", "P"]
-    @Published var chem_cols: [Colour] = [rgb_for(col: .red), rgb_for(col: .green), rgb_for(col: .blue)]
+    @Published var equation_list: [String] = []
+    @Published var rate_list: [[Double]] = []
+    @Published var chems: [String] = []
+    @Published var chem_cols: [Colour] = []
     @Published var chem_cols_picker: [Colour] = []
-    @Published var background_col_enum: Colour_enum = .black
+    @Published var D_strs: [String] = []
+    @Published var background_col_enum: Colour_enum
     @Published var is_sim_running = false
     @Published var are_eqns_up_to_date = true
-    @Published var D_strs: [String] = [String].init(repeating: "1.0", count: 3)
+    
     
     let D_default: Double = 1.0
     var diffusion_consts: [Double] {
@@ -39,6 +40,16 @@ class Chemical_eqns: ObservableObject {
 
     func update_all() { // change
         update_chems()
+    }
+    
+    init() {
+        let preset = Preset()
+        self.equation_list = preset.equation_list
+        self.rate_list = preset.rate_list
+        self.chems = preset.chems
+        self.chem_cols = preset.chem_cols
+        self.D_strs = preset.diffusion_consts.map{$0.description}
+        self.background_col_enum = preset.background_col_enum
     }
 }
 

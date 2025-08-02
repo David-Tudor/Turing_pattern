@@ -17,7 +17,11 @@
 // single vs double - no effect!!? <- in readme, make a list of stuff ive done but isnt in the final code.
 // Make diffusion act many times per step, RK4 option, increase chem scale amount so diffusion goes further and colour sensitivity
 // remove Cell
-// REACTION not working correctly.
+// simd REACTION not working correctly.
+// read from file on init for what startup reactions?
+
+// NEXT preset mode with all this new stuff. add targets to normal mode + slider numbers. clean simulation function versions.
+// make grid smaller and plan the next UI, many steps per call?
 
 
 import SwiftUI
@@ -50,6 +54,7 @@ struct ContentView: View {
     
     let slider_length = 250
     let longer_length = 300
+    let preset = Preset()
     
     var body: some View {
         
@@ -57,17 +62,18 @@ struct ContentView: View {
             
             VStack(alignment: .leading) {
                 // Slider for brush size
-                Text("Brush size")
+                Text(String(format: "Brush size: %.2f", brush_size))
                 Slider(value: $brush_size, in: 1...70)
                     .frame(width: CGFloat(slider_length))
+                    
                 
                 // Slider for brush density
-                Text("Brush density")
+                Text(String(format: "Brush density: %.3f", brush_density))
                 Slider(value: $brush_density, in: 0...1.0)
                     .frame(width: CGFloat(slider_length))
                 
                 // Slider for brush amount
-                Text("Brush amount")
+                Text(String(format: "Brush amount: %.2f", brush_amount))
                 Slider(value: $brush_amount, in: 0...5.0)
                     .frame(width: CGFloat(slider_length))
                 

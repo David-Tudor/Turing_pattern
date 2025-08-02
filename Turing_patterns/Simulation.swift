@@ -64,14 +64,17 @@ struct Simulation {
     
     mutating func time_step() {
         let my_dt = 1.0
-        values = diffusion(values, my_dt)
-        
-//        values = reaction(values, my_dt)
-//        values = reactionSIMD(values, my_dt)
-//        values = reactionHARDCODED(values, my_dt)
-        values = reactionHARDCODED2(values, my_dt)
-        
-        if sources != [:] { values = source_calc() }
+        let steps_per_call = 4
+        for _ in 0..<steps_per_call {
+            values = diffusion(values, my_dt)
+            
+            //        values = reaction(values, my_dt)
+            //        values = reactionSIMD(values, my_dt)
+            //        values = reactionHARDCODED(values, my_dt)
+            values = reactionHARDCODED2(values, my_dt)
+            
+            if sources != [:] { values = source_calc() }
+        }
     }
     
     func export_to_view() -> some View {
@@ -116,8 +119,8 @@ struct Simulation {
         
         for i in 0 ..< concs.count {
             c = concs[i]
-//            let dbl = 255 * c/(c+0.1)
-            let dbl = min(255, 255*c)
+            let dbl = 255 * c/(c+0.1)
+//            let dbl = min(255, 255*c)
             let b = dbl.isNaN
             col[i] += sign * (b ? 1 : Int(dbl))
             if b {print("ERROR INF COLOUR: c was \(c)")}
@@ -231,7 +234,7 @@ struct Simulation {
     // Reaction functions
     
     func reaction(_ my_values: Grid, _ my_dt: Double) -> Grid {
-        // AWKWARD TO MAKE RK4 GIVEN SOME REACTIONS DONT HAPPEN IF NEGATIVE, run reaction per functions?
+        // AWKWARD TO MAKE RK4 GIVEN SOME REACTIONS DONT HAPPEN IF NEGATIVE, run reaction per functions? - main problem is then i need to return changes not results.
         var new_values = my_values
         var results = [Double].init(repeating: 0.0, count: num_chems)
         

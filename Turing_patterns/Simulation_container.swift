@@ -25,6 +25,9 @@ struct Simulation_container: View {
         Timer.publish(every: TimeInterval(dt), on: .main, in: .common).autoconnect()
         }
     
+    let sim_size: [Int]
+    let dt_default: Double
+    
     var brush_size: Double
     var is_sponge: Bool
     var brush_density: Double
@@ -47,13 +50,12 @@ struct Simulation_container: View {
         }
     }
     
-    let sim_size = [250, 250]
-    let dt_default: Double = 0.1
-
-    
     init(drag_location: CoreFoundation.CGPoint = CGPoint.zero, brush_size: Double, brush_chem_i_dbl: Double, background_col_enum: Colour_enum, chem_cols: [Colour], dt_str: String, is_sponge: Bool, chems: [String], equation_list: [String], rate_list: [[Double]], brush_density: Double, brush_shape: Brush_shape, is_source: Bool, brush_amount: Double) {
         
-        self.simulation = Simulation(height: sim_size[0], width: sim_size[1], chem_cols: chem_cols, dt: 0.1, background_col_enum: background_col_enum, chems: chems, equation_list: equation_list, rate_list: rate_list)
+        let preset = Preset()
+        self.sim_size = preset.sim_size
+        self.dt_default = preset.dt_default
+        self.simulation = Simulation(height: sim_size[0], width: sim_size[1], chem_cols: chem_cols, dt: dt_default, background_col_enum: background_col_enum, chems: chems, equation_list: equation_list, rate_list: rate_list)
         self.drag_location = drag_location
         self.brush_size = brush_size
         self.brush_chem_i_dbl = brush_chem_i_dbl
