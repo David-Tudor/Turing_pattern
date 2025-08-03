@@ -6,26 +6,19 @@
 //
 
 // TODO
-// currently, some thing init'd assuming the default chemical equations.
-// prevent negative colours
-// SIMD?
-// conc to colour sensitivity
 // why does refresh time = calc time + dt?
 // could make a non real time one.
 // maybe look at metal
 // make RK4, not Euler method. prio timer bug. run time step on a single non-main core?
 // single vs double - no effect!!? <- in readme, make a list of stuff ive done but isnt in the final code.
-// Make diffusion act many times per step, RK4 option, increase chem scale amount so diffusion goes further and colour sensitivity
-// remove Cell
+// remove Cell - ensure test the speedup
 // simd REACTION not working correctly.
-// read from file on init for what startup reactions?
+// bug, target_strs -> target calculated each timestep
 
-// NEXT preset mode with all this new stuff. add targets to normal mode + slider numbers. clean simulation function versions.
-// make grid smaller and plan the next UI, many steps per call?
-
+// NEXT update readme. clean simulation function versions.
+// make target rates eval sums.
 
 import SwiftUI
-import SwiftData
 
 enum Brush_shape {
     case circle
@@ -49,8 +42,9 @@ struct ContentView: View {
         Int(brush_chem_i_dbl)
     }
     @State private var dt_str: String
-    @State private var is_darkmode = true
+    @State private var is_darkmode: Bool
     
+    var target_rates_defaults = Target_rates_defaults()
     let slider_length = 250
     let longer_length = 300
     
@@ -58,6 +52,7 @@ struct ContentView: View {
         let preset = Preset()
         self.brush_chem_i_dbl = preset.brush_chem_i_dbl
         self.dt_str = preset.dt_default.description
+        self.is_darkmode = (preset.background_col_enum != .white)
     }
     
     var body: some View {
@@ -122,15 +117,24 @@ struct ContentView: View {
                     }
                     .frame(width: CGFloat(slider_length))
                     
-                    // Dark mode
-                    Toggle("Dark mode", isOn: $is_darkmode)
-                        .onChange(of: is_darkmode) { oldValue, newValue in
-                            switch newValue {
-                            case true:  chemicals.background_col_enum = .black
-                            case false: chemicals.background_col_enum = .white
+                    HStack {
+                        // Dark mode
+                        Toggle("Dark mode", isOn: $is_darkmode)
+                            .onChange(of: is_darkmode) { oldValue, newValue in
+                                switch newValue {
+                                case true:  chemicals.background_col_enum = .black
+                                case false: chemicals.background_col_enum = .white
+                                }
                             }
+                        
+                        Button("Set target rates to preset: \(target_rates_defaults.name)") {
+                            if chemicals.target_strs.count >= 2 {
+                                chemicals.target_strs[0][1] = target_rates_defaults.a_rate.description
+                                chemicals.target_strs[1][1] = target_rates_defaults.b_rate.description
+                            }
+                            target_rates_defaults.i += 1
                         }
-                    
+                    }
                      
                     // Chemical equations
                     Equation_view()

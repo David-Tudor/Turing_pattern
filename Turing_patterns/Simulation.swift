@@ -14,6 +14,7 @@ import Accelerate
 struct Simulation {
     let height: Int
     let width: Int
+    let image_scale: Double
     var chem_cols: [Colour] // data passed from simulation_container via onChange
     var num_chems: Int
     var values: Grid
@@ -24,6 +25,7 @@ struct Simulation {
     var reaction_funcs: [ ([Double]) -> [Double] ]
     var sources: [[Int]:[Double]] = [:] // dict with coord keys and chem change values. sponge if negative (impossible value)
     var eqn_coeffs_list: [[[Int]]]
+    var equation_list: [String]
     var rate_list: [[Double]]
     var chem_targets_flat: [Double]
     var chem_idxs_all: [[Int]]
@@ -32,40 +34,42 @@ struct Simulation {
         self.height = height
         self.width = width
         self.dt = dt
-        self.values = Grid(height: height, width: width, num_chems: chem_cols.count)
+        let preset = Preset()
+        self.values = Grid(height: height, width: width, num_chems: chem_cols.count, init_concs: preset.init_concs)
         self.background_col = rgb_for(col: background_col_enum)
         self.chem_cols = []
         self.reaction_funcs = make_reaction_functions(chems: chems, equation_list: equation_list, rate_list: rate_list)
-        self.num_chems = chem_cols.count
+        self.num_chems = chems.count
         self.eqn_coeffs_list = make_eqn_coeffs_list(chems: chems, equation_list: equation_list)
+        self.equation_list = equation_list
         self.rate_list = rate_list
         self.chem_targets_flat = chem_targets.flatMap{$0}
-        
-        let test_concs = [Double].init(repeating: 1.0, count: num_chems)
-        var chem_idxs_all_ans = [[Int]].init(repeating: [], count: reaction_funcs.count)
-        for i in 0..<reaction_funcs.count {
-            let result = reaction_funcs[i](test_concs)
-            for j in 0..<num_chems where !result[j].isZero {
-                chem_idxs_all_ans[i].append(j)
-            }
-        }
-        self.chem_idxs_all = chem_idxs_all_ans
+        self.chem_idxs_all = calc_chem_idxs_all(num_chems: num_chems, reaction_funcs: reaction_funcs)
+        self.image_scale = preset.image_scale
     }
+    
+    
     
     mutating func time_step() {
         let my_dt = 1.0
-        let steps_per_call = 4
+        let should_use_hardcoded_reaction = equation_list.count == 1 && (equation_list.first?.replacingOccurrences(of: " ", with: "") == "A+2B->3B") && (rate_list[0][1] == 0.0)
+        let steps_per_call = should_use_hardcoded_reaction ? 6 : 4
+        
         for _ in 0..<steps_per_call {
+            if sources != [:] { values = source_calc(values) }
             values = diffusion(values, my_dt)
             
-            values = reaction(values, my_dt)
-//            values = reactionSIMD(values, my_dt)
-//            values = reactionHARDCODED(values, my_dt) // This INCLUDES its own targets_calc
+            let pre_reaction_vals = values // MOVE TO START OF TIME STEP
             
-            if sources != [:] { values = source_calc() }
-            values = targets_calc(values, my_dt)
+            // test if the ideal equation is being used
+            if should_use_hardcoded_reaction {
+                values = reactionHARDCODED(values, my_dt) // This INCLUDES its own targets_calc
+            } else {
+                values = reaction(values, my_dt)
+                values = targets_calc(values, pre_reaction_vals, my_dt)
+                //            values = reactionSIMD(values, my_dt)
+            }
         }
-        
     }
     
     func export_to_view() -> some View {
@@ -91,7 +95,7 @@ struct Simulation {
         }
         
         let cgimage = pixeldata_to_image(pixels: pixel_data, width: width, height: height)
-        return Image(cgimage, scale: 1, label: Text(""))
+        return Image(cgimage, scale: 1, label: Text("")).scaleEffect(image_scale)
     }
     
     func concs_to_colours(concs: [Double]) -> Colour {
@@ -106,12 +110,10 @@ struct Simulation {
             sign = -1
         }
         
-        let c_for_max_col = 1.1
-        let tffoc_for_max_col = 255/c_for_max_col
-        
         for i in 0 ..< concs.count {
             let c = concs[i]
-            let dbl = min(255, tffoc_for_max_col*c) // let dbl = 255 * c/(c+0.1)
+            // let dbl = 255 * c/(c+0.1)
+            let dbl = min(255, 255 * c) // TODO MULT 2nd 255 by 1.1 breaks it?
             let b = dbl.isNaN
             col[i] += sign * (b ? 1 : Int(dbl))
             if b {print("ERROR INF COLOUR: c was \(c)")}
@@ -129,8 +131,8 @@ struct Simulation {
     
     mutating func clear_values() {
         sources = [:]
-        values = Grid(height: height, width: width, num_chems: num_chems)
-        
+        let preset = Preset()
+        values = Grid(height: height, width: width, num_chems: chem_cols.count, init_concs: preset.init_concs)
     }
     
     // Diffusion functions
@@ -218,7 +220,7 @@ struct Simulation {
                     
                     results = new_values[x,y].concs
                     for i in chem_idxs {
-                        results[i] += f_val[i] * my_dt / (1+concs[i]*concs[i])
+                        results[i] += f_val[i] * my_dt
                         if results[i] < 0 {
                             is_positive = false
                             break // can't react if it would make a negative so skip the reaction.
@@ -238,7 +240,7 @@ struct Simulation {
         func expr1(_ a: Double, _ b: Double) -> Double { return -rate_list[0][0]*a*b*b }
         func expr2(_ a: Double) -> Double { return chem_targets_flat[1] * (chem_targets_flat[0]-a) }
         func expr3(_ b: Double) -> Double { return chem_targets_flat[3] * (chem_targets_flat[2]-b) }
-        var new_values = values
+        var new_values = my_values
         var concs: [Double]
         for x in 0 ..< width {
             for y in 0 ..< height {
@@ -263,7 +265,7 @@ struct Simulation {
         }
         return new_values
     }
-    
+
     func reactionSIMD(_ my_values: Grid, _ my_dt: Double) -> Grid {
         // ! currently gives different results, is slower, and doesn't have target concs.
         var new_values = my_values
@@ -392,9 +394,9 @@ struct Simulation {
         }
     }
     
-    func source_calc() -> Grid {
+    func source_calc(_ my_values: Grid) -> Grid {
         let zeros = [Double](repeating: 0.0, count: num_chems)
-        var new_values = values
+        var new_values = my_values
         
         for (pos, amt) in sources {
             let x = pos[0]
@@ -409,23 +411,24 @@ struct Simulation {
         return new_values
     }
     
-    func targets_calc(_ values: Grid, _ my_dt: Double) -> Grid {
-        // could move into reaction so fewer remade loops.
-        var new_values = values
+    func targets_calc(_ my_values: Grid, _ read_values: Grid, _ my_dt: Double) -> Grid {
+        // changes must be calculated with the same concentrations as 'reaction' func - these are passed into the 'read_values' arg. Then my_values is the Grid which will be modified (+='d) so the result after calculating the reactions should be passed in here.
+        // COULD move into reaction so fewer remade loops.
+        var new_values = my_values
         for x in 0 ..< width {
             for y in 0 ..< height {
                 for chem_i in 0..<num_chems {
                     let two_chem_i = 2*chem_i
-                    let change = chem_targets_flat[two_chem_i+1] * (chem_targets_flat[two_chem_i] - values[x,y].concs[chem_i]) * my_dt
+                    let change = chem_targets_flat[two_chem_i+1] * (chem_targets_flat[two_chem_i] - read_values[x,y].concs[chem_i]) * my_dt
                     if new_values[x,y].concs[chem_i] > -change {
                         new_values[x,y].concs[chem_i] += change
                     }
                 }
             }
         }
-
         return new_values
     }
+    
 }
 
 struct Grid {
@@ -444,8 +447,8 @@ struct Grid {
         set { values[x] = newValue }
     }
     
-    init(height: Int, width: Int, num_chems: Int) {
-        let cell = Cell(concs: [Double](repeating: 0.0, count: num_chems))
+    init(height: Int, width: Int, num_chems: Int, init_concs: [Double]? = nil) {
+        let cell = Cell(concs: init_concs ?? [Double](repeating: 0.0, count: num_chems))
         self.values = [Cell](repeating: cell, count: Int(height * width))
         self.height = height
         self.width = width

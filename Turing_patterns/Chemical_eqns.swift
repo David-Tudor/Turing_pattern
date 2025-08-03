@@ -21,7 +21,7 @@ class Chemical_eqns: ObservableObject {
     @Published var are_eqns_up_to_date = true
     
     
-    let D_default: Double = 1.0
+    let D_default: Double = 0.1
     var diffusion_consts: [Double] {
         var ans: [Double] = []
         for s in D_strs {
@@ -32,14 +32,25 @@ class Chemical_eqns: ObservableObject {
     }
     
     let target_default = 0.0
-    var chem_targets: [[Double]] {
+    var chem_targets: [[Double]] { // TODO print in here shows it's called every timestep??
         var ans: [[Double]] = []
         for ss in target_strs {
             let d0 = Double(ss[0].trimmingCharacters(in: .whitespacesAndNewlines)) ?? target_default
-            let d1 = Double(ss[1].trimmingCharacters(in: .whitespacesAndNewlines)) ?? target_default
+            let d1 = parse_target_rate(ss[1])
+            print("from \(ss), appending \([d0,d1])")
             ans.append([d0,d1])
         }
         return ans
+    }
+    
+    func parse_target_rate(_ s: String) -> Double {
+        if s.contains("+") {
+            return s.split(separator: "+").reduce(0.0) { partialResult, ss in
+                partialResult + (Double(ss.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0.0)
+            }
+        } else {
+            return Double(s.trimmingCharacters(in: .whitespacesAndNewlines)) ?? target_default
+        }
     }
     
     func toggle_sim_running() {

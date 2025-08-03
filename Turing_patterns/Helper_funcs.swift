@@ -7,8 +7,19 @@
 
 import Foundation
 
+func calc_chem_idxs_all(num_chems: Int, reaction_funcs: [([Double]) -> [Double]]) -> [[Int]] {
+    let test_concs = [Double].init(repeating: 1.0, count: num_chems)
+    var chem_idxs_all_ans = [[Int]].init(repeating: [], count: reaction_funcs.count)
+    for i in 0..<reaction_funcs.count {
+        let result = reaction_funcs[i](test_concs)
+        for j in 0..<num_chems where !result[j].isZero {
+            chem_idxs_all_ans[i].append(j)
+        }
+    }
+    return chem_idxs_all_ans
+}
 
-func find_idx_of_max(of a: [Num]) -> Int? {
+func find_idx_of_max(of a: [Double]) -> Int? {
     assert(a.count >= 1)
     if a.allSatisfy({$0 == 0.0}) { return nil } // nil if all elements are zero
     

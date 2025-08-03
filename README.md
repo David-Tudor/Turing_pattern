@@ -1,6 +1,6 @@
 A reaction-diffusion simulation which the user can interact with by dragging a brush to place different chemicals. Diffusion and chemical reactions are simulated, and the latter can be specified by the user.
 
-I believe Turing patterns occur when, using the default equations, the diffusion constant of chemical B is set to 4.5 and chemical B (green) is painted on the canvas.
+Initial parameters are set to produce a Turing pattern so painting on the canvas, pressing play, then waiting will produce one.
 
 Hidden features:
 * Press space to pause/play simulation

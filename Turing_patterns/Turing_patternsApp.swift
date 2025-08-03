@@ -6,12 +6,9 @@
 //
 
 import SwiftUI
-import SwiftData
 
 @main
 struct Turing_patternsApp: App {
-
-
     var body: some Scene {
         WindowGroup {
             ContentView()

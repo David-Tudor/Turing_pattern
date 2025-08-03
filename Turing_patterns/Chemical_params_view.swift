@@ -53,6 +53,9 @@ struct Chemical_params_view: View {
         while chemicals.D_strs.count < chemicals.chems.count {
             chemicals.D_strs.append(chemicals.D_default.description)
         }
+        while chemicals.target_strs.count < chemicals.chems.count {
+            chemicals.target_strs.append([chemicals.target_default.description, chemicals.target_default.description])
+        }
     }
     
     func color_to_rgb(for color: Color) -> Colour {

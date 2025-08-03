@@ -27,6 +27,9 @@ struct Simulation_container: View {
     
     let sim_size: [Int]
     let dt_default: Double
+    let preset = Preset()
+    let im_size: [CGFloat]
+    let ooscale: CGFloat
     
     var brush_size: Double
     var is_sponge: Bool
@@ -65,18 +68,23 @@ struct Simulation_container: View {
         self.brush_shape = brush_shape
         self.is_source = is_source
         self.brush_amount = brush_amount
+        self.im_size = sim_size.map{CGFloat(Double($0) * preset.image_scale)}
+        self.ooscale = 1/preset.image_scale
     }
     
     var body: some View {
         VStack {
         
             simulation.export_to_view()
+//                .resizable()
+                .frame(width: im_size[0], height: im_size[1])
+//                .scaleEffect(scal)
                 .coordinateSpace(name: "space")
                 .gesture(drag)
             
             // chemical brush:
                 .onChange(of: drag_location) { oldValue, newValue in
-                    simulation.paint(chemical: brush_chem_i, around: [Int(newValue.x), Int(newValue.y)], diameter: brush_size, amount: brush_amount, shape: brush_shape, is_source: is_source, brush_density: brush_density)
+                    simulation.paint(chemical: brush_chem_i, around: [Int(newValue.x * ooscale), Int(newValue.y * ooscale)], diameter: brush_size, amount: brush_amount, shape: brush_shape, is_source: is_source, brush_density: brush_density)
                 }
             
             // time stepper:
@@ -106,7 +114,12 @@ struct Simulation_container: View {
                 .onChange(of: chemicals.chem_cols, {simulation.chem_cols = chemicals.chem_cols})
                 .onChange(of: chemicals.is_sim_running, {simulation.is_running = chemicals.is_sim_running})
                 .onChange(of: chemicals.chem_cols.count, {simulation.values = Grid(height: sim_size[0], width: sim_size[1], num_chems: chemicals.chem_cols.count); simulation.num_chems = chemicals.chem_cols.count})
-                .onChange(of: chemicals.equation_list, {simulation.reaction_funcs = make_reaction_functions(chems: chemicals.chems, equation_list: chemicals.equation_list, rate_list: chemicals.rate_list)})
+                .onChange(of: chemicals.equation_list, {
+                    let funcs = make_reaction_functions(chems: chemicals.chems, equation_list: chemicals.equation_list, rate_list: chemicals.rate_list)
+                    simulation.reaction_funcs = funcs
+                    simulation.chem_idxs_all = calc_chem_idxs_all(num_chems: chemicals.chems.count, reaction_funcs: funcs)
+                    simulation.equation_list = chemicals.equation_list
+                })
                 .onChange(of: chemicals.rate_list, {
                     simulation.reaction_funcs = make_reaction_functions(chems: chemicals.chems, equation_list: chemicals.equation_list, rate_list: chemicals.rate_list)
                     simulation.rate_list = chemicals.rate_list

@@ -19,10 +19,12 @@ struct Preset {
     // chem_targets contains 2 values for each chemical - the target concentration, and the rate it is approached at.
     // chem_cols contains [Int] rgb values for each chemical. Overwritten to rgb or cym when num_chems <= 3.
     
+    let init_concs = [1.0, 0.0]
     let background_col_enum: Colour_enum = .white
     let sim_size = [150, 150]
     let dt_default: Double = 0.1
     let brush_chem_i_dbl: Double = 1.0
+    let image_scale = 1.5
     
     var chems: [String] {
         get_chems_from_eqns(from: equation_list)
