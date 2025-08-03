@@ -15,8 +15,8 @@
 // simd REACTION not working correctly.
 // bug, target_strs -> target calculated each timestep
 
-// NEXT update readme. clean simulation function versions.
-// make target rates eval sums.
+// NEXT inlineable? clean simulation function versions, fix D_strs calc'c too often.
+
 
 import SwiftUI
 

@@ -12,3 +12,5 @@ __UI input__
 * To the right of the each equation, the forwards and backwards rates of reaction may be specified and should be integers or doubles.
 * Ticks and crosses are shown next to the equations and rates indicating their validity.
 * A red message will appear next to the Enter equations button when the equations or rates are invalid or have been edited and not saved. Fixing the invalid input and pressing this button will allow the Play button to be pressed which starts the simulation.
+
+![plot](./readme_im1.png)
