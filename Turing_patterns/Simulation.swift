@@ -49,25 +49,23 @@ struct Simulation {
     }
     
     
-    
     mutating func time_step() {
         let my_dt = 1.0
         let should_use_hardcoded_reaction = equation_list.count == 1 && (equation_list.first?.replacingOccurrences(of: " ", with: "") == "A+2B->3B") && (rate_list[0][1] == 0.0)
         let steps_per_call = should_use_hardcoded_reaction ? 6 : 4
         
         for _ in 0..<steps_per_call {
-            if sources != [:] { values = source_calc(values) }
-            values = diffusion(values, my_dt)
-            
-            let pre_reaction_vals = values // MOVE TO START OF TIME STEP
+            let start_vals = values
+            values = diffusion(values, my_dt) // calc first so start_values not needed.
+            if sources != [:] { values = source_calc(values, start_vals) }
             
             // test if the ideal equation is being used
             if should_use_hardcoded_reaction {
-                values = reactionHARDCODED(values, my_dt) // This INCLUDES its own targets_calc
+                values = reactionHARDCODED(values, start_vals, my_dt) // This INCLUDES its own targets_calc
             } else {
-                values = reaction(values, my_dt)
-                values = targets_calc(values, pre_reaction_vals, my_dt)
-                //            values = reactionSIMD(values, my_dt)
+                values = reaction(values, start_vals, my_dt)
+                values = targets_calc(values, start_vals, my_dt)
+                //            values = reactionSIMD(values, start_vals, my_dt)
             }
         }
     }
@@ -202,7 +200,7 @@ struct Simulation {
     
     // Reaction functions
     
-    func reaction(_ my_values: Grid, _ my_dt: Double) -> Grid {
+    func reaction(_ my_values: Grid, _ start_values: Grid, _ my_dt: Double) -> Grid {
         // AWKWARD TO MAKE RK4 GIVEN SOME REACTIONS DONT HAPPEN IF NEGATIVE, run reaction per functions? - main problem is then i need to return changes not results.
         var new_values = my_values
         var results = [Double].init(repeating: 0.0, count: num_chems)
@@ -214,7 +212,7 @@ struct Simulation {
             
             for x in 0 ..< width {
                 for y in 0 ..< height {
-                    let concs = my_values[x,y].concs
+                    let concs = start_values[x,y].concs
                     let f_val = f(concs)
                     var is_positive = true
                     
@@ -235,7 +233,7 @@ struct Simulation {
         return new_values
     }
     
-    func reactionHARDCODED(_ my_values: Grid, _ my_dt: Double) -> Grid {
+    func reactionHARDCODED(_ my_values: Grid, _ start_values: Grid, _ my_dt: Double) -> Grid {
         // reaction is hardcoded (A+2B->3B), but coeffs can still be changed
         func expr1(_ a: Double, _ b: Double) -> Double { return -rate_list[0][0]*a*b*b }
         func expr2(_ a: Double) -> Double { return chem_targets_flat[1] * (chem_targets_flat[0]-a) }
@@ -244,7 +242,7 @@ struct Simulation {
         var concs: [Double]
         for x in 0 ..< width {
             for y in 0 ..< height {
-                concs = my_values[x,y].concs
+                concs = start_values[x,y].concs
                 
                 let val1 = expr1(concs[0], concs[1]) * my_dt
                 let val2 = expr2(concs[0]) * my_dt
@@ -266,20 +264,20 @@ struct Simulation {
         return new_values
     }
 
-    func reactionSIMD(_ my_values: Grid, _ my_dt: Double) -> Grid {
+    func reactionSIMD(_ my_values: Grid, _ start_values: Grid, _ my_dt: Double) -> Grid {
         // ! currently gives different results, is slower, and doesn't have target concs.
         var new_values = my_values
         
         for (eqn_i, eqn_coeffs) in eqn_coeffs_list.enumerated() {
-            new_values = perform_reactionSIMD(new_values, eqn_coeffs[0], eqn_coeffs[1], rate_list[eqn_i][0], my_dt)
-            new_values = perform_reactionSIMD(new_values, eqn_coeffs[1], eqn_coeffs[0], rate_list[eqn_i][1], my_dt)
+            new_values = perform_reactionSIMD(new_values, start_values, eqn_coeffs[0], eqn_coeffs[1], rate_list[eqn_i][0], my_dt)
+            new_values = perform_reactionSIMD(new_values, start_values, eqn_coeffs[1], eqn_coeffs[0], rate_list[eqn_i][1], my_dt)
         }
         print("there are \(eqn_coeffs_list.count * 2) calls")
         return new_values
     }
     
     
-    func perform_reactionSIMD(_ my_values: Grid, _ lhs_coeffs: [Int], _ rhs_coeffs: [Int], _ k: Double, _ my_dt: Double) -> Grid {
+    func perform_reactionSIMD(_ my_values: Grid, _ start_values: Grid, _ lhs_coeffs: [Int], _ rhs_coeffs: [Int], _ k: Double, _ my_dt: Double) -> Grid {
         if k == 0.0 { return my_values } // test if skip available
         
         var new_values = my_values
@@ -307,11 +305,11 @@ struct Simulation {
                     var vec = zero_vec
                     if is_not_near_end {
                         for i in 0..<stride {
-                            vec[i] = my_values[cell_i+i].concs[chem_i]
+                            vec[i] = start_values[cell_i+i].concs[chem_i]
                         }
                     } else {
                         for i in 0..<(num_cells-cell_i) {
-                            vec[i] = my_values[cell_i+i].concs[chem_i]
+                            vec[i] = start_values[cell_i+i].concs[chem_i]
                         } // relies on temp init'd to zero
                     }
                     
@@ -394,7 +392,7 @@ struct Simulation {
         }
     }
     
-    func source_calc(_ my_values: Grid) -> Grid {
+    func source_calc(_ my_values: Grid, _ start_values: Grid) -> Grid {
         let zeros = [Double](repeating: 0.0, count: num_chems)
         var new_values = my_values
         
@@ -402,7 +400,7 @@ struct Simulation {
             let x = pos[0]
             let y = pos[1]
             if amt.first! >= 0.0 {
-                new_values[x,y].concs = zip(new_values[x,y].concs, amt).map(+)
+                new_values[x,y].concs = zip(start_values[x,y].concs, amt).map(+)
             } else {
                 new_values[x,y].concs = zeros
             }
@@ -411,15 +409,15 @@ struct Simulation {
         return new_values
     }
     
-    func targets_calc(_ my_values: Grid, _ read_values: Grid, _ my_dt: Double) -> Grid {
-        // changes must be calculated with the same concentrations as 'reaction' func - these are passed into the 'read_values' arg. Then my_values is the Grid which will be modified (+='d) so the result after calculating the reactions should be passed in here.
+    func targets_calc(_ my_values: Grid, _ start_values: Grid, _ my_dt: Double) -> Grid {
+        // changes must be calculated with the same concentrations as 'reaction' func - these are passed into the 'start_values' arg. Then my_values is the Grid which will be modified (+='d) so the result after calculating the reactions should be passed in here.
         // COULD move into reaction so fewer remade loops.
         var new_values = my_values
         for x in 0 ..< width {
             for y in 0 ..< height {
                 for chem_i in 0..<num_chems {
                     let two_chem_i = 2*chem_i
-                    let change = chem_targets_flat[two_chem_i+1] * (chem_targets_flat[two_chem_i] - read_values[x,y].concs[chem_i]) * my_dt
+                    let change = chem_targets_flat[two_chem_i+1] * (chem_targets_flat[two_chem_i] - start_values[x,y].concs[chem_i]) * my_dt
                     if new_values[x,y].concs[chem_i] > -change {
                         new_values[x,y].concs[chem_i] += change
                     }

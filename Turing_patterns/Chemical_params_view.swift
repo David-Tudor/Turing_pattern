@@ -1,5 +1,5 @@
 //
-//  Colour_selection_view.swift
+//  Chemical_params_view.swift
 //  Turing_patterns
 //
 //  Created by David Tudor on 12/07/2025.

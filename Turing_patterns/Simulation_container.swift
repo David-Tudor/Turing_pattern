@@ -109,7 +109,7 @@ struct Simulation_container: View {
             
             // update simulation properties when they are changed elsewhere
                 .onChange(of: dt, {simulation.dt = dt})
-                .onChange(of: chemicals.diffusion_consts, {simulation.diffusion_consts = chemicals.diffusion_consts})
+                .onChange(of: chemicals.D_strs, {simulation.diffusion_consts = chemicals.diffusion_consts})
                 .onChange(of: chemicals.background_col_enum, {simulation.background_col = rgb_for(col: chemicals.background_col_enum)})
                 .onChange(of: chemicals.chem_cols, {simulation.chem_cols = chemicals.chem_cols})
                 .onChange(of: chemicals.is_sim_running, {simulation.is_running = chemicals.is_sim_running})
@@ -124,7 +124,7 @@ struct Simulation_container: View {
                     simulation.reaction_funcs = make_reaction_functions(chems: chemicals.chems, equation_list: chemicals.equation_list, rate_list: chemicals.rate_list)
                     simulation.rate_list = chemicals.rate_list
                 })
-                .onChange(of: chemicals.chem_targets, {simulation.chem_targets_flat = chemicals.chem_targets.flatMap{$0}})
+                .onChange(of: chemicals.target_strs, {simulation.chem_targets_flat = chemicals.chem_targets.flatMap{$0}})
             
             HStack {
                 // Clear simulation button

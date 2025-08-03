@@ -8,11 +8,13 @@
 import Foundation
 
 class Target_rates_defaults {
-    // values from https://www.youtube.com/watch?v=nIGgK9wv_eg
     private let data: [Target_rates_obj] = [
         Target_rates_obj(name: "coral", k: 0.062, f: 0.055),
         Target_rates_obj(name: "mitosis", k: 0.058, f: 0.021),
         Target_rates_obj(name: "1pulse", k:0.05542, f:0.01887),
+        Target_rates_obj(name: "lines", k:0.04968 , f:0.02241),
+        Target_rates_obj(name: "swirls", k:0.052 , f:0.018),
+//        Target_rates_obj(name: "", k:0. , f:0.),
     ]
 
     var i: Int = 0

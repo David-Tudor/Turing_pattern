@@ -6,17 +6,12 @@
 //
 
 // TODO
-// why does refresh time = calc time + dt?
-// could make a non real time one.
-// maybe look at metal
-// make RK4, not Euler method. prio timer bug. run time step on a single non-main core?
-// single vs double - no effect!!? <- in readme, make a list of stuff ive done but isnt in the final code.
 // remove Cell - ensure test the speedup
 // simd REACTION not working correctly.
-// bug, target_strs -> target calculated each timestep
+// multithreading
 
-// NEXT inlineable? clean simulation function versions, fix D_strs calc'c too often.
-
+// BUGS
+// why does refresh time = calc time + dt?
 
 import SwiftUI
 

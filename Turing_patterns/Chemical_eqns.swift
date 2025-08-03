@@ -32,12 +32,11 @@ class Chemical_eqns: ObservableObject {
     }
     
     let target_default = 0.0
-    var chem_targets: [[Double]] { // TODO print in here shows it's called every timestep??
+    var chem_targets: [[Double]] {
         var ans: [[Double]] = []
         for ss in target_strs {
             let d0 = Double(ss[0].trimmingCharacters(in: .whitespacesAndNewlines)) ?? target_default
             let d1 = parse_target_rate(ss[1])
-            print("from \(ss), appending \([d0,d1])")
             ans.append([d0,d1])
         }
         return ans
