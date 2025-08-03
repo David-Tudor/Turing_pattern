@@ -76,15 +76,15 @@ struct Simulation {
         
         for x in 0 ..< width {
             for y in 0 ..< height {
-                if values[x,y].concs.allSatisfy({$0 == 0.0}) {
+                if values[x,y].allSatisfy({$0 == 0.0}) {
                     pixel_data[(y * width) + x] = background_pixel
                     
                 } else if num_chems <= 3 {
-                    pixel_data[(y * width) + x] = make_PixelData(rgb: concs_to_colours(concs: values[x,y].concs))
+                    pixel_data[(y * width) + x] = make_PixelData(rgb: concs_to_colours(concs: values[x,y]))
                     
                 } else {
                     // show most concentrated chemical
-                    guard let i = find_idx_of_max(of: values[x,y].concs) else {
+                    guard let i = find_idx_of_max(of: values[x,y]) else {
                         continue // pixel is left as background if all concs are zero
                     }
                     pixel_data[(y * width) + x] = make_PixelData(rgb: chem_cols[i])
@@ -143,7 +143,7 @@ struct Simulation {
             var key = 0
             for y in 0 ..< height {
                 for x in 0 ..< width {
-                    src[i][key] = Float(my_values[x,y].concs[i])
+                    src[i][key] = Float(my_values[x,y][i])
                     key += 1
                 }
             }
@@ -190,7 +190,7 @@ struct Simulation {
             for x in 0..<width {
                 let key = yw + x
                 for i in 0..<num_chems {
-                    new_values[x, y].concs[i] = max(0.0, Double(src[i][key] + dst[i][key] * Ddts[i]))
+                    new_values[x, y][i] = max(0.0, Double(src[i][key] + dst[i][key] * Ddts[i]))
                 }
             }
         }
@@ -212,11 +212,11 @@ struct Simulation {
             
             for x in 0 ..< width {
                 for y in 0 ..< height {
-                    let concs = start_values[x,y].concs
+                    let concs = start_values[x,y]
                     let f_val = f(concs)
                     var is_positive = true
                     
-                    results = new_values[x,y].concs
+                    results = new_values[x,y]
                     for i in chem_idxs {
                         results[i] += f_val[i] * my_dt
                         if results[i] < 0 {
@@ -225,7 +225,7 @@ struct Simulation {
                         }
                     }
                     if is_positive {
-                        new_values[x,y].concs = results
+                        new_values[x,y] = results
                     }
                 }
             }
@@ -242,21 +242,21 @@ struct Simulation {
         var concs: [Double]
         for x in 0 ..< width {
             for y in 0 ..< height {
-                concs = start_values[x,y].concs
+                concs = start_values[x,y]
                 
                 let val1 = expr1(concs[0], concs[1]) * my_dt
                 let val2 = expr2(concs[0]) * my_dt
                 let val3 = expr3(concs[1]) * my_dt
-                if new_values[x,y].concs[0] > -val1 && new_values[x,y].concs[1] > val1 { // only react if concs will stay positive
-                    new_values[x,y].concs[0] +=  val1
-                    new_values[x,y].concs[1] += -val1
+                if new_values[x,y][0] > -val1 && new_values[x,y][1] > val1 { // only react if concs will stay positive
+                    new_values[x,y][0] +=  val1
+                    new_values[x,y][1] += -val1
                 }
                 // expr2 and expr3 are targets of each chem.
-                if new_values[x,y].concs[0] > -val2 {
-                    new_values[x,y].concs[0] +=  val2
+                if new_values[x,y][0] > -val2 {
+                    new_values[x,y][0] +=  val2
                 }
-                if new_values[x,y].concs[1] > -val3 {
-                    new_values[x,y].concs[1] +=  val3
+                if new_values[x,y][1] > -val3 {
+                    new_values[x,y][1] +=  val3
                 }
                 
             }
@@ -305,11 +305,11 @@ struct Simulation {
                     var vec = zero_vec
                     if is_not_near_end {
                         for i in 0..<stride {
-                            vec[i] = start_values[cell_i+i].concs[chem_i]
+                            vec[i] = start_values[cell_i+i][chem_i]
                         }
                     } else {
                         for i in 0..<(num_cells-cell_i) {
-                            vec[i] = start_values[cell_i+i].concs[chem_i]
+                            vec[i] = start_values[cell_i+i][chem_i]
                         } // relies on temp init'd to zero
                     }
                     
@@ -324,11 +324,11 @@ struct Simulation {
                     
                     if is_not_near_end {
                         for i in 0..<stride {
-                            new_values[cell_i+i].concs[chem_i] = Double(new_values_V[i])
+                            new_values[cell_i+i][chem_i] = Double(new_values_V[i])
                         }
                     } else {
                         for i in 0..<(num_cells-cell_i) {
-                            new_values[cell_i+i].concs[chem_i] = Double(new_values_V[i])
+                            new_values[cell_i+i][chem_i] = Double(new_values_V[i])
                         }
                     }
                 }
@@ -368,9 +368,9 @@ struct Simulation {
             if is_point_valid(x, y) {
                 // add to value directly
                 if let chemical = chem_i  {
-                    values[x, y].concs[chemical] += (shape != .gaussian) ? amount : amount * exp(-Double(xy[0]*xy[0] + xy[1]*xy[1])/d2) // add chemical
+                    values[x, y][chemical] += (shape != .gaussian) ? amount : amount * exp(-Double(xy[0]*xy[0] + xy[1]*xy[1])/d2) // add chemical
                 } else {
-                    values[x, y].concs = [Double](repeating: 0.0, count: num_chems) // sponge
+                    values[x, y] = [Double](repeating: 0.0, count: num_chems) // sponge
                 }
                 
                 // option to also make a source/sink
@@ -400,9 +400,9 @@ struct Simulation {
             let x = pos[0]
             let y = pos[1]
             if amt.first! >= 0.0 {
-                new_values[x,y].concs = zip(start_values[x,y].concs, amt).map(+)
+                new_values[x,y] = zip(start_values[x,y], amt).map(+)
             } else {
-                new_values[x,y].concs = zeros
+                new_values[x,y] = zeros
             }
         }
         
@@ -417,9 +417,9 @@ struct Simulation {
             for y in 0 ..< height {
                 for chem_i in 0..<num_chems {
                     let two_chem_i = 2*chem_i
-                    let change = chem_targets_flat[two_chem_i+1] * (chem_targets_flat[two_chem_i] - start_values[x,y].concs[chem_i]) * my_dt
-                    if new_values[x,y].concs[chem_i] > -change {
-                        new_values[x,y].concs[chem_i] += change
+                    let change = chem_targets_flat[two_chem_i+1] * (chem_targets_flat[two_chem_i] - start_values[x,y][chem_i]) * my_dt
+                    if new_values[x,y][chem_i] > -change {
+                        new_values[x,y][chem_i] += change
                     }
                 }
             }
@@ -430,31 +430,24 @@ struct Simulation {
 }
 
 struct Grid {
-    var values: [Cell]
+    var values: [[Double]]
     let height: Int
     let width: Int
     
     @inlinable
-    subscript(x: Int, y: Int) -> Cell {
+    subscript(x: Int, y: Int) -> [Double] {
         get { return values[(y * width) + x] }
         set { values[(y * width) + x] = newValue }
     }
     
-    subscript(x: Int) -> Cell { // TODO USE THIS MORE
+    subscript(x: Int) -> [Double] { // TODO USE THIS MORE
         get { return values[x] }
         set { values[x] = newValue }
     }
     
     init(height: Int, width: Int, num_chems: Int, init_concs: [Double]? = nil) {
-        let cell = Cell(concs: init_concs ?? [Double](repeating: 0.0, count: num_chems))
-        self.values = [Cell](repeating: cell, count: Int(height * width))
+        self.values = [[Double]](repeating: (init_concs ?? [Double](repeating: 0.0, count: num_chems)), count: Int(height * width))
         self.height = height
         self.width = width
     }
 }
-
-struct Cell {
-    var concs: [Double]
-}
-
-typealias Num = Double
