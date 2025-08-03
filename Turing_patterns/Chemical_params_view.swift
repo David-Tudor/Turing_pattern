@@ -8,10 +8,15 @@
 import Foundation
 import SwiftUI
 
-struct Colour_picker_view: View {
+struct Chemical_params_view: View {
     @EnvironmentObject var chemicals: Chemical_eqns
     
     @State private var picker_displayed_cols = [Color].init(repeating: Color(.sRGB, red: 0.0, green: 0.0, blue: 0.0), count: 3)
+    let col1_width: CGFloat = 125
+    let col1_frac = 0.6
+    let col2_width: CGFloat = 120
+    let col3_width: CGFloat = 150
+    let col3_frac = 0.5
     
     private var picker_cols: [Colour] {
         picker_displayed_cols.map { color in
@@ -54,7 +59,6 @@ struct Colour_picker_view: View {
         guard let nsColor: NSColor = NSColor(color).usingColorSpace(.sRGB) else {
             return rgb_purple // return purple on failing
         }
-        
         var red: CGFloat = 0
         var green: CGFloat = 0
         var blue: CGFloat = 0
@@ -73,22 +77,35 @@ struct Colour_picker_view: View {
         VStack(alignment: .leading) {
             HStack {
                 Text("Colour selection")
-                Spacer()
+                    .frame(width: col1_width)
                 Text("Diffusion constants")
+                    .frame(width: col2_width)
+                Text("Target concs and rates")
+                    .frame(width: col3_width)
             }
             ForEach(chem_range, id: \.self) { i in
-                HStack {
-                    Text("Chemical \(chemicals.chems[i])")
-                    ZStack {
-                        ColorPicker("", selection: $picker_displayed_cols[i])
-                            .disabled(chemicals.chems.count <= 3)
-                        if (chemicals.chems.count <= 3) {Image(systemName: "lock.fill")}
+                    HStack {
+                        Text("Chemical \(chemicals.chems[i])")
+                            .frame(width: col1_width*col1_frac)
+                        ZStack {
+                            ColorPicker("", selection: $picker_displayed_cols[i])
+                                .disabled(chemicals.chems.count <= 3)
+                            if (chemicals.chems.count <= 3) {Image(systemName: "lock.fill")}
+                        }
+                        .frame(width: col1_width*(1-col1_frac))
+
+                        TextField("Diffusion const", text: $chemicals.D_strs[i])
+                            .frame(width: col2_width)
+                        Group {
+                            TextField("Concentration", text: $chemicals.target_strs[i][0])
+                                .frame(width: col3_width*col3_frac)
+                            TextField("Rate", text: $chemicals.target_strs[i][1])
+                                .frame(width: col3_width*(1-col3_frac))
+                        }
+                        
                     }
-                    TextField("Diffusion const", text: $chemicals.D_strs[i])
-                }
             }
         }
-        .frame(width: 250)
         .padding(.vertical, 30)
         .onAppear {
             picker_displayed_cols = chemicals.chem_cols.map({ rgb in

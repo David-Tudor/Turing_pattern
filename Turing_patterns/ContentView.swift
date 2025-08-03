@@ -44,17 +44,21 @@ struct ContentView: View {
     @State private var brush_shape = Brush_shape.circle
     @State private var is_sponge = false
     @State private var is_source = false
-    @State private var brush_chem_i_dbl = 0.0
+    @State private var brush_chem_i_dbl: Double
     var brush_chem_i: Int {
         Int(brush_chem_i_dbl)
     }
-    @State private var dt_str = "0.1"
+    @State private var dt_str: String
     @State private var is_darkmode = true
-    
     
     let slider_length = 250
     let longer_length = 300
-    let preset = Preset()
+    
+    init() {
+        let preset = Preset()
+        self.brush_chem_i_dbl = preset.brush_chem_i_dbl
+        self.dt_str = preset.dt_default.description
+    }
     
     var body: some View {
         
@@ -131,7 +135,7 @@ struct ContentView: View {
                     // Chemical equations
                     Equation_view()
                     // Chemical colour picker
-                    Colour_picker_view()
+                    Chemical_params_view()
                         .disabledAppearance(if: chemicals.is_sim_running)
                 }
                 .disabled(chemicals.is_sim_running)
@@ -160,7 +164,7 @@ struct ContentView: View {
             }
             
             VStack {
-                Simulation_container(brush_size: brush_size, brush_chem_i_dbl: brush_chem_i_dbl, background_col_enum: chemicals.background_col_enum, chem_cols: chemicals.chem_cols, dt_str: dt_str, is_sponge: is_sponge, chems: chemicals.chems, equation_list: chemicals.equation_list, rate_list: chemicals.rate_list, brush_density: brush_density, brush_shape: brush_shape, is_source: is_source, brush_amount: brush_amount)
+                Simulation_container(brush_size: brush_size, brush_chem_i_dbl: brush_chem_i_dbl, background_col_enum: chemicals.background_col_enum, chem_cols: chemicals.chem_cols, dt_str: dt_str, is_sponge: is_sponge, chems: chemicals.chems, equation_list: chemicals.equation_list, rate_list: chemicals.rate_list, brush_density: brush_density, brush_shape: brush_shape, is_source: is_source, brush_amount: brush_amount, chem_targets: chemicals.chem_targets)
                 
             } // end of 2nd column VStack
 

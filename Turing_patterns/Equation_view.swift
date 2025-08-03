@@ -94,6 +94,8 @@ struct Equation_view: View {
     
     var body: some View {
         VStack(alignment: .leading) {
+            Text("Equations and forwards and backwards rates")
+                .disabledAppearance(if: chemicals.is_sim_running)
             HStack {
                 Button(action: {
                     _ = eqn_list_local.popLast()
@@ -117,15 +119,13 @@ struct Equation_view: View {
                     TextField("Equation", text: $eqn_list_local[i])
                         .frame(width: eqn_field_length)
                     Image(systemName: are_equations_valid[i] ? "checkmark" : "xmark")
-                        .foregroundColor(chemicals.is_sim_running ? .gray : .primary)
-                        .opacity(chemicals.is_sim_running ? 0.6 : 1.0)
+                        .disabledAppearance(if: chemicals.is_sim_running)
                     Spacer()
                     HStack {
                         TextField("k₊", text: $rate_str_list[i][0])
                         TextField("k₋", text: $rate_str_list[i][1])
                         Image(systemName: are_rates_valid[i] ? "checkmark" : "xmark")
-                            .foregroundColor(chemicals.is_sim_running ? .gray : .primary)
-                            .opacity(chemicals.is_sim_running ? 0.6 : 1.0)
+                            .disabledAppearance(if: chemicals.is_sim_running)
                     }
                 }
             }

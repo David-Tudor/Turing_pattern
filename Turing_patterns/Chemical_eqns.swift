@@ -9,12 +9,13 @@ import Foundation
 import SwiftUI
 
 class Chemical_eqns: ObservableObject {
-    @Published var equation_list: [String] = []
-    @Published var rate_list: [[Double]] = []
-    @Published var chems: [String] = []
-    @Published var chem_cols: [Colour] = []
+    @Published var equation_list: [String]
+    @Published var rate_list: [[Double]]
+    @Published var target_strs: [[String]]
+    @Published var chems: [String]
+    @Published var D_strs: [String]
+    @Published var chem_cols: [Colour]
     @Published var chem_cols_picker: [Colour] = []
-    @Published var D_strs: [String] = []
     @Published var background_col_enum: Colour_enum
     @Published var is_sim_running = false
     @Published var are_eqns_up_to_date = true
@@ -26,6 +27,17 @@ class Chemical_eqns: ObservableObject {
         for s in D_strs {
             let d = Double(s.trimmingCharacters(in: .whitespacesAndNewlines))
             ans.append(d ?? D_default)
+        }
+        return ans
+    }
+    
+    let target_default = 0.0
+    var chem_targets: [[Double]] {
+        var ans: [[Double]] = []
+        for ss in target_strs {
+            let d0 = Double(ss[0].trimmingCharacters(in: .whitespacesAndNewlines)) ?? target_default
+            let d1 = Double(ss[1].trimmingCharacters(in: .whitespacesAndNewlines)) ?? target_default
+            ans.append([d0,d1])
         }
         return ans
     }
@@ -46,6 +58,7 @@ class Chemical_eqns: ObservableObject {
         let preset = Preset()
         self.equation_list = preset.equation_list
         self.rate_list = preset.rate_list
+        self.target_strs = preset.chem_targets.map{[$0[0].description, $0[1].description]}
         self.chems = preset.chems
         self.chem_cols = preset.chem_cols
         self.D_strs = preset.diffusion_consts.map{$0.description}

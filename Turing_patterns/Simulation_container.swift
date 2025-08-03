@@ -23,7 +23,7 @@ struct Simulation_container: View {
     
     var timer: Publishers.Autoconnect<Timer.TimerPublisher> {
         Timer.publish(every: TimeInterval(dt), on: .main, in: .common).autoconnect()
-        }
+    }
     
     let sim_size: [Int]
     let dt_default: Double
@@ -50,12 +50,12 @@ struct Simulation_container: View {
         }
     }
     
-    init(drag_location: CoreFoundation.CGPoint = CGPoint.zero, brush_size: Double, brush_chem_i_dbl: Double, background_col_enum: Colour_enum, chem_cols: [Colour], dt_str: String, is_sponge: Bool, chems: [String], equation_list: [String], rate_list: [[Double]], brush_density: Double, brush_shape: Brush_shape, is_source: Bool, brush_amount: Double) {
+    init(drag_location: CoreFoundation.CGPoint = CGPoint.zero, brush_size: Double, brush_chem_i_dbl: Double, background_col_enum: Colour_enum, chem_cols: [Colour], dt_str: String, is_sponge: Bool, chems: [String], equation_list: [String], rate_list: [[Double]], brush_density: Double, brush_shape: Brush_shape, is_source: Bool, brush_amount: Double, chem_targets: [[Double]]) {
         
         let preset = Preset()
         self.sim_size = preset.sim_size
         self.dt_default = preset.dt_default
-        self.simulation = Simulation(height: sim_size[0], width: sim_size[1], chem_cols: chem_cols, dt: dt_default, background_col_enum: background_col_enum, chems: chems, equation_list: equation_list, rate_list: rate_list)
+        self.simulation = Simulation(height: sim_size[0], width: sim_size[1], chem_cols: chem_cols, dt: dt_default, background_col_enum: background_col_enum, chems: chems, equation_list: equation_list, rate_list: rate_list, chem_targets: chem_targets)
         self.drag_location = drag_location
         self.brush_size = brush_size
         self.brush_chem_i_dbl = brush_chem_i_dbl
@@ -111,6 +111,7 @@ struct Simulation_container: View {
                     simulation.reaction_funcs = make_reaction_functions(chems: chemicals.chems, equation_list: chemicals.equation_list, rate_list: chemicals.rate_list)
                     simulation.rate_list = chemicals.rate_list
                 })
+                .onChange(of: chemicals.chem_targets, {simulation.chem_targets_flat = chemicals.chem_targets.flatMap{$0}})
             
             HStack {
                 // Clear simulation button
@@ -123,8 +124,9 @@ struct Simulation_container: View {
             }
         }
         .onAppear {
-            simulation.chem_cols = chemicals.chem_cols // NEEDED?
+            simulation.chem_cols = chemicals.chem_cols
             simulation.diffusion_consts = chemicals.diffusion_consts
+            simulation.chem_targets_flat = chemicals.chem_targets.flatMap{$0}
         }
     }
 }
