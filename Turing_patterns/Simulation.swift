@@ -265,65 +265,59 @@ struct Simulation {
     }
 
     func reactionSIMD(_ my_values: Grid, _ start_values: Grid, _ my_dt: Double) -> Grid {
-        // ! currently gives different results, is slower, and doesn't have target concs.
-        // init variables
+        // ! currently gives different results
         var new_values = my_values
         let num_cells = width*height
-        let num_eqns = equation_list.count
         let stride = 64
         let zero_vec = SIMD64(repeating: 0.0)
         let zero_vecs = [SIMD64<Double>].init(repeating: zero_vec, count: num_chems)
-        let val_init = my_dt
-        let V_init = SIMD64(repeating: val_init)
-        let V_inits = [SIMD64<Double>].init(repeating: V_init, count: num_eqns*2)
-        
+        var vec_store = zero_vecs
         
         //  loop through all cells, finding change from each func per one.
         var cell_i = 0
         while cell_i < num_cells {
-            var vec_store = zero_vecs
-            let range_max = min(stride, (num_cells-cell_i) )
+            let cell_range = 0..<min(stride, (num_cells-cell_i) )
             
             // fill vec_store with 64 concs per chemical
             for chem_i in 0..<num_chems {
-                var vec = zero_vec // vec contains 64 concs of chem_i
-                    for i in 0..<range_max {
-                        print(i, cell_i+i)
+                var vec = zero_vec
+                    for i in cell_range {
                         vec[i] = start_values[cell_i+i][chem_i]
                     }
                 vec_store[chem_i] = vec
             }
             
-            var term = [V_init, V_init]
             var changes = zero_vecs
             for (eqn_i, eqn_coeffs) in eqn_coeffs_list.enumerated() {
                 let lhs_coeffs = eqn_coeffs[0]
                 let rhs_coeffs = eqn_coeffs[1]
                 let ks = rate_list[eqn_i]
-                let diffs = zip(lhs_coeffs, rhs_coeffs).map{Double($1-$0)}
+                let term = calc_reaction_termSIMD(vec_store, lhs_coeffs, ks[0]*my_dt) - calc_reaction_termSIMD(vec_store, rhs_coeffs, ks[1]*my_dt)
                 
-                term[0] *= ks[0]
-                term[1] *= ks[1]
+                let diffs = zip(lhs_coeffs, rhs_coeffs).map{Double($1-$0)}
                 for chem_i in 0..<num_chems {
-                    term[0] *= powSIMD(vec_store[chem_i], lhs_coeffs[chem_i])
-                    term[1] *= powSIMD(vec_store[chem_i], rhs_coeffs[chem_i])
-                }
-                for chem_i in 0..<num_chems {
-                    changes[chem_i] += diffs[chem_i] * (term[0]-term[1])
+                    changes[chem_i] += diffs[chem_i] * term
                 }
             }
                 
             for chem_i in 0..<num_chems {
                 let change = changes[chem_i]
-                for i in 0..<range_max {
-                    print("latter \(cell_i+i)")
-                    new_values[cell_i+i][chem_i] += Double(change[i])
-                    if new_values[cell_i+i][chem_i] < 0 {new_values[cell_i+i][chem_i]=0} // ensure conc >= 0
+                for i in cell_range {
+                    new_values[cell_i+i][chem_i] = max(0, new_values[cell_i+i][chem_i] + Double(change[i]))
                 }
             }
             cell_i += stride
         }
         return new_values
+    }
+    
+    func calc_reaction_termSIMD(_ vec_store: [SIMD64<Double>], _ coeffs: [Int], _ kdt: Double) -> SIMD64<Double> {
+        if kdt == 0.0 { return SIMD64<Double>.init(repeating: 0.0) }
+        var term = SIMD64<Double>.init(repeating: kdt)
+        for chem_i in 0..<num_chems {
+            term *= powSIMD(vec_store[chem_i], coeffs[chem_i])
+        }
+        return term
     }
     
     
