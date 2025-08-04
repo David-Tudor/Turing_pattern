@@ -25,7 +25,7 @@ struct Chemical_params_view: View {
     }
     
     private var chem_range: Range<Int> {
-        0 ..< min(picker_displayed_cols.count,chemicals.chems.count) // MAKE SURE THE MIN DOESNT DO BAD
+        0 ..< min(picker_displayed_cols.count,chemicals.chems.count)
     }
     
     private let rgb_purple = rgb_for(col: .purple)

@@ -6,9 +6,9 @@
 //
 
 // TODO
-// simd REACTION not working correctly. - move to per xy, do all fns.
 // multithreading
 // further optimisation?
+// sometims published timer locks to 0.2000 nicely? - dt currently=1, not from UI input.
 
 // BUGS
 // why does refresh time = calc time + dt?

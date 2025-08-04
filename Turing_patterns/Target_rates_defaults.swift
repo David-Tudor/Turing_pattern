@@ -14,7 +14,8 @@ class Target_rates_defaults {
         Target_rates_obj(name: "1pulse", k:0.05542, f:0.01887),
         Target_rates_obj(name: "lines", k:0.04968 , f:0.02241),
         Target_rates_obj(name: "swirls", k:0.052 , f:0.018),
-//        Target_rates_obj(name: "", k:0. , f:0.),
+        Target_rates_obj(name: "factions", k:0.061 , f:0.0555),
+        Target_rates_obj(name: "holes", k:0.0607 , f:0.0558),
     ]
 
     var i: Int = 0

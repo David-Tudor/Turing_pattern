@@ -60,7 +60,7 @@ class Chemical_eqns: ObservableObject {
         chems = get_chems_from_eqns(from: equation_list)
     }
 
-    func update_all() { // change
+    func update_all() {
         update_chems()
     }
     

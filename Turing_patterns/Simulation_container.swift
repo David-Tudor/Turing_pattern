@@ -76,9 +76,7 @@ struct Simulation_container: View {
         VStack {
         
             simulation.export_to_view()
-//                .resizable()
                 .frame(width: im_size[0], height: im_size[1])
-//                .scaleEffect(scal)
                 .coordinateSpace(name: "space")
                 .gesture(drag)
             
@@ -102,8 +100,7 @@ struct Simulation_container: View {
                             simulation.time_step()
                         }
 
-                        print(String(format: "Time OF step: %.3f | CALCULATE step %.3f | EFF. %.3f",
-                                     step_time, duration_to_dbl(elapsed), Double(dt)/step_time))
+                        print(String(format: "Time OF step: %.3f | CALCULATE step %.3f", step_time, duration_to_dbl(elapsed)))
                     }
                 }
             

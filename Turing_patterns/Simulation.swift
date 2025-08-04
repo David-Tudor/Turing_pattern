@@ -29,6 +29,15 @@ struct Simulation {
     var rate_list: [[Double]]
     var chem_targets_flat: [Double]
     var chem_idxs_all: [[Int]]
+    let can_use_hardcoded_reaction: Bool
+    let reaction_method_general: Reaction_method
+    
+    // kernel https://math.stackexchange.com/questions/3464125/how-was-the-2d-discrete-laplacian-matrix-calculated
+    let laplacian_kernel: [Float] = [
+        1,  4,  1,
+        4, -20, 4,
+        1,  4,  1
+    ].map { $0 * 0.1667 }
     
     init(height: Int, width: Int, chem_cols: [Colour], dt: Double, background_col_enum: Colour_enum, chems: [String], equation_list: [String], rate_list: [[Double]], chem_targets: [[Double]]) {
         self.height = height
@@ -46,25 +55,32 @@ struct Simulation {
         self.chem_targets_flat = chem_targets.flatMap{$0}
         self.chem_idxs_all = calc_chem_idxs_all(num_chems: num_chems, reaction_funcs: reaction_funcs)
         self.image_scale = preset.image_scale
+        self.can_use_hardcoded_reaction = (preset.reaction_method == .normal_or_hardcoded || preset.reaction_method == .SIMD_or_hardcoded)
+        self.reaction_method_general = (preset.reaction_method == .SIMD || preset.reaction_method == .SIMD_or_hardcoded) ? .SIMD : .normal
     }
     
     
     mutating func time_step() {
         let my_dt = 1.0
-        let should_use_hardcoded_reaction = equation_list.count == 1 && (equation_list.first?.replacingOccurrences(of: " ", with: "") == "A+2B->3B") && (rate_list[0][1] == 0.0)
-        let steps_per_call = should_use_hardcoded_reaction ? 6 : 4
+        let should_use_hardcoded_reaction =
+        can_use_hardcoded_reaction &&
+        (equation_list.count == 1) &&
+        (equation_list.first?.replacingOccurrences(of: " ", with: "") == "A+2B->3B") && (rate_list[0][1] == 0.0)
+        
+//        let steps_per_call = should_use_hardcoded_reaction ? 6 : 4
+        let steps_per_call = 8
         
         for _ in 0..<steps_per_call {
             let start_vals = values
-            values = diffusion(values, my_dt) // calc first so start_values not needed.
+            values = diffusion(values, my_dt) // calc FIRST so start_values not needed.
             if sources != [:] { values = source_calc(values, start_vals) }
             
-            // test if the ideal equation is being used
-            if should_use_hardcoded_reaction && false {
+            if should_use_hardcoded_reaction {
                 values = reactionHARDCODED(values, start_vals, my_dt) // This INCLUDES its own targets_calc
             } else {
-//                values = reaction(values, start_vals, my_dt)
-                values = reactionSIMD(values, start_vals, my_dt)
+                if reaction_method_general == .SIMD { values = reactionSIMD(values, start_vals, my_dt) }
+                else { values = reaction(values, start_vals, my_dt) }
+                
                 values = targets_calc(values, start_vals, my_dt)
             }
         }
@@ -74,22 +90,21 @@ struct Simulation {
         let background_pixel = make_PixelData(rgb: background_col)
         var pixel_data = [PixelData](repeating: background_pixel, count: Int(height * width))
         
-        for x in 0 ..< width {
-            for y in 0 ..< height {
-                if values[x,y].allSatisfy({$0 == 0.0}) {
-                    pixel_data[(y * width) + x] = background_pixel
-                    
-                } else if num_chems <= 3 {
-                    pixel_data[(y * width) + x] = make_PixelData(rgb: concs_to_colours(concs: values[x,y]))
-                    
-                } else {
-                    // show most concentrated chemical
-                    guard let i = find_idx_of_max(of: values[x,y]) else {
-                        continue // pixel is left as background if all concs are zero
-                    }
-                    pixel_data[(y * width) + x] = make_PixelData(rgb: chem_cols[i])
+        for xy in 0 ..< width*height {
+            if values[xy].allSatisfy({$0 == 0.0}) {
+                pixel_data[xy] = background_pixel
+                
+            } else if num_chems <= 3 {
+                pixel_data[xy] = make_PixelData(rgb: concs_to_colours(concs: values[xy]))
+                
+            } else {
+                // show most concentrated chemical
+                guard let i = find_idx_of_max(of: values[xy]) else {
+                    continue // pixel is left as background if all concs are zero
                 }
+                pixel_data[xy] = make_PixelData(rgb: chem_cols[i])
             }
+            
         }
         
         let cgimage = pixeldata_to_image(pixels: pixel_data, width: width, height: height)
@@ -133,33 +148,22 @@ struct Simulation {
         values = Grid(height: height, width: width, num_chems: chem_cols.count, init_concs: preset.init_concs)
     }
     
-    // Diffusion functions
+    // Diffusion function
     
     func diffusion(_ my_values: Grid, _ my_dt: Double) -> Grid {
-        let Ddts = diffusion_consts.map{Float($0 * my_dt)}
         var src = [[Float]].init(repeating: [Float].init(repeating: 0.0, count: height*width), count: num_chems)
         var dst = src
         for i in 0..<num_chems {
-            var key = 0
-            for y in 0 ..< height {
-                for x in 0 ..< width {
-                    src[i][key] = Float(my_values[x,y][i])
-                    key += 1
-                }
+            for xy in 0 ..< width*height {
+                src[i][xy] = Float(my_values[xy][i])
             }
         }
         
-        // kernel https://math.stackexchange.com/questions/3464125/how-was-the-2d-discrete-laplacian-matrix-calculated
-        let kernel: [Float] = [
-            1,  4,  1,
-            4, -20, 4,
-            1,  4,  1
-        ].map { $0 * 0.1667 }
         let v_height = vImagePixelCount(height)
         let v_width = vImagePixelCount(width)
         let row_bytes = width * MemoryLayout<Float>.stride
         
-        kernel.withUnsafeBufferPointer { kernel_ptr in
+        laplacian_kernel.withUnsafeBufferPointer { kernel_ptr in
             for i in 0..<num_chems {
                 src[i].withUnsafeMutableBufferPointer { src_ptr in
                     dst[i].withUnsafeMutableBufferPointer { dst_ptr in
@@ -185,16 +189,14 @@ struct Simulation {
         }
         
         var new_values = Grid(height: height, width: width, num_chems: num_chems)
-        for y in 0..<height {
-            let yw = y * width
-            for x in 0..<width {
-                let key = yw + x
-                for i in 0..<num_chems {
-                    new_values[x, y][i] = max(0.0, Double(src[i][key] + dst[i][key] * Ddts[i]))
-                }
+        for i in 0..<num_chems {
+            let s = src[i]
+            let d = dst[i]
+            let Ddt = Float(diffusion_consts[i] * my_dt)
+            for xy in 0 ..< width*height {
+                new_values[xy][i] = max(0.0, Double(s[xy] + d[xy] * Ddt))
             }
         }
-    
         return new_values
     }
     
@@ -209,64 +211,59 @@ struct Simulation {
             // Test for which chems f(x)=0 so those can be skipped:
             let chem_idxs = chem_idxs_all[f_i] // skip chemicals where LHS coeff = RHS coeff.
             if chem_idxs.isEmpty { continue } // if rate=0, f(x)=0 so no reactions/changes needed
-            
-            for x in 0 ..< width {
-                for y in 0 ..< height {
-                    let concs = start_values[x,y]
-                    let f_val = f(concs)
-                    var is_positive = true
-                    
-                    results = new_values[x,y]
-                    for i in chem_idxs {
-                        results[i] += f_val[i] * my_dt
-                        if results[i] < 0 {
-                            is_positive = false
-                            break // can't react if it would make a negative so skip the reaction.
-                        }
+            for xy in 0 ..< width*height {
+                let concs = start_values[xy]
+                let f_val = f(concs)
+                var is_positive = true
+                
+                results = new_values[xy]
+                for i in chem_idxs {
+                    results[i] += f_val[i] * my_dt
+                    if results[i] < 0 {
+                        is_positive = false
+                        break // can't react if it would make a negative so skip the reaction.
                     }
-                    if is_positive {
-                        new_values[x,y] = results
-                    }
+                }
+                if is_positive {
+                    new_values[xy] = results
                 }
             }
         }
         return new_values
     }
     
+    func expr1_reactionHard(_ a: Double, _ b: Double) -> Double { return -rate_list[0][0]*a*b*b }
+    func expr2_reactionHard(_ a: Double) -> Double { return chem_targets_flat[1] * (chem_targets_flat[0]-a) }
+    func expr3_reactionHard(_ b: Double) -> Double { return chem_targets_flat[3] * (chem_targets_flat[2]-b) }
+    
     func reactionHARDCODED(_ my_values: Grid, _ start_values: Grid, _ my_dt: Double) -> Grid {
         // reaction is hardcoded (A+2B->3B), but coeffs can still be changed
-        func expr1(_ a: Double, _ b: Double) -> Double { return -rate_list[0][0]*a*b*b }
-        func expr2(_ a: Double) -> Double { return chem_targets_flat[1] * (chem_targets_flat[0]-a) }
-        func expr3(_ b: Double) -> Double { return chem_targets_flat[3] * (chem_targets_flat[2]-b) }
+        
         var new_values = my_values
         var concs: [Double]
-        for x in 0 ..< width {
-            for y in 0 ..< height {
-                concs = start_values[x,y]
-                
-                let val1 = expr1(concs[0], concs[1]) * my_dt
-                let val2 = expr2(concs[0]) * my_dt
-                let val3 = expr3(concs[1]) * my_dt
-                if new_values[x,y][0] > -val1 && new_values[x,y][1] > val1 { // only react if concs will stay positive
-                    new_values[x,y][0] +=  val1
-                    new_values[x,y][1] += -val1
-                }
+        for xy in 0 ..< width*height {
+            concs = start_values[xy]
             
-                // expr2 and expr3 are targets of each chem.
-                if new_values[x,y][0] > -val2 {
-                    new_values[x,y][0] +=  val2
-                }
-                if new_values[x,y][1] > -val3 {
-                    new_values[x,y][1] +=  val3
-                }
-                
+            let val1 = expr1_reactionHard(concs[0], concs[1]) * my_dt
+            let val2 = expr2_reactionHard(concs[0]) * my_dt
+            let val3 = expr3_reactionHard(concs[1]) * my_dt
+            if new_values[xy][0] > -val1 && new_values[xy][1] > val1 { // only react if concs will stay positive
+                new_values[xy][0] +=  val1
+                new_values[xy][1] += -val1
+            }
+            
+            // expr2 and expr3 are targets of each chem.
+            if new_values[xy][0] > -val2 {
+                new_values[xy][0] +=  val2
+            }
+            if new_values[xy][1] > -val3 {
+                new_values[xy][1] +=  val3
             }
         }
         return new_values
     }
 
     func reactionSIMD(_ my_values: Grid, _ start_values: Grid, _ my_dt: Double) -> Grid {
-        // ! currently gives different results
         var new_values = my_values
         let num_cells = width*height
         let stride = 64
@@ -288,8 +285,6 @@ struct Simulation {
                     }
                 vec_store[chem_i] = vec
             }
-            
-            // NEW FEATURE: an eqn must not react if it would make a negative. Cannot just set to zero.
             
             var changes = zero_vecs
             for (eqn_i, eqn_coeffs) in eqn_coeffs_list.enumerated() {
@@ -332,7 +327,6 @@ struct Simulation {
         return term
     }
     
-    
     func powSIMD(_ x: SIMD64<Double>, _ n: Int) -> SIMD64<Double> {
         switch n {
         case 0: return SIMD64(repeating: 1.0)
@@ -350,7 +344,7 @@ struct Simulation {
     // Painting
     
     mutating func paint(chemical chem_i: Int?, around position: [Int], diameter: Double, amount: Double, shape: Brush_shape, is_source: Bool, brush_density: Double) {
-        // if chem_i == nil, sponge up chemicals, else add the chosen one.
+        // if chem_i is nil, sponge up chemicals, else add the chosen one.
         let coords = get_coords(diameter: diameter, ring_fraction: 0.8, shape: shape, density: brush_density)
         let d2 = (diameter*diameter)*0.1
         let zeros = [Double].init(repeating: 0.0, count: num_chems)
@@ -372,13 +366,12 @@ struct Simulation {
                     // run this 'if' block on each valid coordinate
                     let pos = [x,y]
                     if let chemical = chem_i {
-                        // ensure dict key exists
-                        if let _ = sources[pos] {} else {
+                        if let _ = sources[pos] {} else { // create a zero entry if key isn't in the dict already
                             sources[pos] = zeros
                         }
-
-                        if (sources[pos]!.first! >= 0.0) {
-                            sources[pos]![chemical] += (shape != .gaussian) ? amount : amount * exp(-Double(xy[0]*xy[0] + xy[1]*xy[1])/d2) // '!!' as we checked key exists and val exists
+                        
+                        if !is_source_pos_already_a_sink(sources[pos]!) {
+                            sources[pos]![chemical] += (shape != .gaussian) ? amount : amount * exp(-Double(xy[0]*xy[0] + xy[1]*xy[1])/d2) // force unwrap as we checked key exists and val exists
                         }
                     } else { sources[pos] = negatives }
                 }
@@ -386,35 +379,37 @@ struct Simulation {
         }
     }
     
+    func is_source_pos_already_a_sink(_ source_val: [Double]) -> Bool {
+        // assumes the key exists!
+        (source_val.first! < 0.0) // if a sink, all entries would be negative
+    }
+    
     func source_calc(_ my_values: Grid, _ start_values: Grid) -> Grid {
+        // adds a set amout of chemical at the source positions, or sponges it all up.
         let zeros = [Double](repeating: 0.0, count: num_chems)
         var new_values = my_values
         
         for (pos, amt) in sources {
             let x = pos[0]
             let y = pos[1]
-            if amt.first! >= 0.0 {
+            if !is_source_pos_already_a_sink(amt) {
                 new_values[x,y] = zip(start_values[x,y], amt).map(+)
             } else {
                 new_values[x,y] = zeros
             }
         }
-        
         return new_values
     }
     
     func targets_calc(_ my_values: Grid, _ start_values: Grid, _ my_dt: Double) -> Grid {
-        // changes must be calculated with the same concentrations as 'reaction' func - these are passed into the 'start_values' arg. Then my_values is the Grid which will be modified (+='d) so the result after calculating the reactions should be passed in here.
-        // COULD move into reaction so fewer remade loops.
+        // each chemical 'x' tends towards a target 't' at a rate 'k': dx/dt = k(t-x)
         var new_values = my_values
-        for x in 0 ..< width {
-            for y in 0 ..< height {
-                for chem_i in 0..<num_chems {
-                    let two_chem_i = 2*chem_i
-                    let change = chem_targets_flat[two_chem_i+1] * (chem_targets_flat[two_chem_i] - start_values[x,y][chem_i]) * my_dt
-                    if new_values[x,y][chem_i] > -change {
-                        new_values[x,y][chem_i] += change
-                    }
+        for xy in 0 ..< width*height {
+            for chem_i in 0..<num_chems {
+                let two_chem_i = 2*chem_i
+                let change = chem_targets_flat[two_chem_i+1] * (chem_targets_flat[two_chem_i] - start_values[xy][chem_i]) * my_dt
+                if new_values[xy][chem_i] > -change {
+                    new_values[xy][chem_i] += change
                 }
             }
         }
@@ -434,7 +429,7 @@ struct Grid {
         set { values[(y * width) + x] = newValue }
     }
     
-    subscript(x: Int) -> [Double] { // TODO USE THIS MORE
+    subscript(x: Int) -> [Double] {
         get { return values[x] }
         set { values[x] = newValue }
     }
@@ -444,4 +439,13 @@ struct Grid {
         self.height = height
         self.width = width
     }
+}
+
+enum Reaction_method {
+    // normal/SIMD take general equations whereas hardcoded looks for A+2B->3B
+    // normal loops through each x,y whereas SIMD calculates blocks of 64.
+    case normal_or_hardcoded
+    case SIMD_or_hardcoded
+    case normal
+    case SIMD
 }
