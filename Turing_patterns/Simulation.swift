@@ -60,12 +60,12 @@ struct Simulation {
             if sources != [:] { values = source_calc(values, start_vals) }
             
             // test if the ideal equation is being used
-            if should_use_hardcoded_reaction {
+            if should_use_hardcoded_reaction && false {
                 values = reactionHARDCODED(values, start_vals, my_dt) // This INCLUDES its own targets_calc
             } else {
-                values = reaction(values, start_vals, my_dt)
+//                values = reaction(values, start_vals, my_dt)
+                values = reactionSIMD(values, start_vals, my_dt)
                 values = targets_calc(values, start_vals, my_dt)
-                //            values = reactionSIMD(values, start_vals, my_dt)
             }
         }
     }
@@ -266,78 +266,66 @@ struct Simulation {
 
     func reactionSIMD(_ my_values: Grid, _ start_values: Grid, _ my_dt: Double) -> Grid {
         // ! currently gives different results, is slower, and doesn't have target concs.
-        var new_values = my_values
-        
-        for (eqn_i, eqn_coeffs) in eqn_coeffs_list.enumerated() {
-            new_values = perform_reactionSIMD(new_values, start_values, eqn_coeffs[0], eqn_coeffs[1], rate_list[eqn_i][0], my_dt)
-            new_values = perform_reactionSIMD(new_values, start_values, eqn_coeffs[1], eqn_coeffs[0], rate_list[eqn_i][1], my_dt)
-        }
-        print("there are \(eqn_coeffs_list.count * 2) calls")
-        return new_values
-    }
-    
-    
-    func perform_reactionSIMD(_ my_values: Grid, _ start_values: Grid, _ lhs_coeffs: [Int], _ rhs_coeffs: [Int], _ k: Double, _ my_dt: Double) -> Grid {
-        if k == 0.0 { return my_values } // test if skip available
-        
+        // init variables
         var new_values = my_values
         let num_cells = width*height
-        let diffs = zip(lhs_coeffs, rhs_coeffs).map{Double($1-$0)}
+        let num_eqns = equation_list.count
         let stride = 64
-
-        let val_init = k * my_dt
-        let V_init = SIMD64(repeating: val_init)
         let zero_vec = SIMD64(repeating: 0.0)
         let zero_vecs = [SIMD64<Double>].init(repeating: zero_vec, count: num_chems)
+        let val_init = my_dt
+        let V_init = SIMD64(repeating: val_init)
+        let V_inits = [SIMD64<Double>].init(repeating: V_init, count: num_eqns*2)
         
-        let clock = ContinuousClock()
-        var time: Duration = .seconds(0)
         
+        //  loop through all cells, finding change from each func per one.
         var cell_i = 0
         while cell_i < num_cells {
             var vec_store = zero_vecs
-            let is_not_near_end = (cell_i+stride-1 < num_cells)
+            let range_max = min(stride, (num_cells-cell_i) )
             
-            var term = V_init
+            // fill vec_store with 64 concs per chemical
             for chem_i in 0..<num_chems {
-                // get concs and ensure they exist, else 0.
-                
-                    var vec = zero_vec
-                    if is_not_near_end {
-                        for i in 0..<stride {
-                            vec[i] = start_values[cell_i+i][chem_i]
-                        }
-                    } else {
-                        for i in 0..<(num_cells-cell_i) {
-                            vec[i] = start_values[cell_i+i][chem_i]
-                        } // relies on temp init'd to zero
+                var vec = zero_vec // vec contains 64 concs of chem_i
+                    for i in 0..<range_max {
+                        print(i, cell_i+i)
+                        vec[i] = start_values[cell_i+i][chem_i]
                     }
-                    
-                    vec_store[chem_i] = vec
-                    term *= powSIMD(vec, lhs_coeffs[chem_i])
+                vec_store[chem_i] = vec
             }
             
-            time += clock.measure {
+            var term = [V_init, V_init]
+            var changes = zero_vecs
+            for (eqn_i, eqn_coeffs) in eqn_coeffs_list.enumerated() {
+                let lhs_coeffs = eqn_coeffs[0]
+                let rhs_coeffs = eqn_coeffs[1]
+                let ks = rate_list[eqn_i]
+                let diffs = zip(lhs_coeffs, rhs_coeffs).map{Double($1-$0)}
+                
+                term[0] *= ks[0]
+                term[1] *= ks[1]
                 for chem_i in 0..<num_chems {
-                    let new_values_V = vec_store[chem_i] + diffs[chem_i] * term // vec_store should be newvals? div by 1+c^2?
-                    if new_values_V.min() < 0 { continue }
-                    
-                    if is_not_near_end {
-                        for i in 0..<stride {
-                            new_values[cell_i+i][chem_i] = Double(new_values_V[i])
-                        }
-                    } else {
-                        for i in 0..<(num_cells-cell_i) {
-                            new_values[cell_i+i][chem_i] = Double(new_values_V[i])
-                        }
-                    }
+                    term[0] *= powSIMD(vec_store[chem_i], lhs_coeffs[chem_i])
+                    term[1] *= powSIMD(vec_store[chem_i], rhs_coeffs[chem_i])
+                }
+                for chem_i in 0..<num_chems {
+                    changes[chem_i] += diffs[chem_i] * (term[0]-term[1])
+                }
+            }
+                
+            for chem_i in 0..<num_chems {
+                let change = changes[chem_i]
+                for i in 0..<range_max {
+                    print("latter \(cell_i+i)")
+                    new_values[cell_i+i][chem_i] += Double(change[i])
+                    if new_values[cell_i+i][chem_i] < 0 {new_values[cell_i+i][chem_i]=0} // ensure conc >= 0
                 }
             }
             cell_i += stride
         }
-        print(duration_to_dbl(time))
         return new_values
     }
+    
     
     func powSIMD(_ x: SIMD64<Double>, _ n: Int) -> SIMD64<Double> {
         switch n {

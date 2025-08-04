@@ -6,9 +6,9 @@
 //
 
 // TODO
-// remove Cell - ensure test the speedup
-// simd REACTION not working correctly.
+// simd REACTION not working correctly. - move to per xy, do all fns.
 // multithreading
+// further optimisation?
 
 // BUGS
 // why does refresh time = calc time + dt?
