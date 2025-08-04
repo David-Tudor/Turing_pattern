@@ -251,6 +251,7 @@ struct Simulation {
                     new_values[x,y][0] +=  val1
                     new_values[x,y][1] += -val1
                 }
+            
                 // expr2 and expr3 are targets of each chem.
                 if new_values[x,y][0] > -val2 {
                     new_values[x,y][0] +=  val2
@@ -269,6 +270,7 @@ struct Simulation {
         var new_values = my_values
         let num_cells = width*height
         let stride = 64
+        let zero_chems = [Double].init(repeating: 0.0, count: num_chems)
         let zero_vec = SIMD64(repeating: 0.0)
         let zero_vecs = [SIMD64<Double>].init(repeating: zero_vec, count: num_chems)
         var vec_store = zero_vecs
@@ -287,6 +289,8 @@ struct Simulation {
                 vec_store[chem_i] = vec
             }
             
+            // NEW FEATURE: an eqn must not react if it would make a negative. Cannot just set to zero.
+            
             var changes = zero_vecs
             for (eqn_i, eqn_coeffs) in eqn_coeffs_list.enumerated() {
                 let lhs_coeffs = eqn_coeffs[0]
@@ -299,11 +303,19 @@ struct Simulation {
                     changes[chem_i] += diffs[chem_i] * term
                 }
             }
-                
-            for chem_i in 0..<num_chems {
-                let change = changes[chem_i]
-                for i in cell_range {
-                    new_values[cell_i+i][chem_i] = max(0, new_values[cell_i+i][chem_i] + Double(change[i]))
+            
+            for i in cell_range {
+                var is_positive_reaction = true
+                var results = zero_chems
+                for chem_i in 0..<num_chems {
+                    results[chem_i] = new_values[cell_i+i][chem_i] + Double(changes[chem_i][i])
+                    if results[chem_i] < 0 {
+                        is_positive_reaction = false
+                        break
+                    }
+                }
+                if is_positive_reaction {
+                    new_values[cell_i+i] = results
                 }
             }
             cell_i += stride
