@@ -268,12 +268,17 @@ struct Simulation {
         let num_cells = width*height
         let stride = 64
         let zero_chems = [Double].init(repeating: 0.0, count: num_chems)
-        let zero_vec = SIMD64(repeating: 0.0)
-        let zero_vecs = [SIMD64<Double>].init(repeating: zero_vec, count: num_chems)
+        let zero_vec = SIMD64<Float>(repeating: 0.0)
+        let zero_vecs = [SIMD64<Float>].init(repeating: zero_vec, count: num_chems)
         var vec_store = zero_vecs
         
         //  loop through all cells, finding change from each func per one.
         var cell_i = 0
+        
+        let kdt_floats = rate_list.map { ks in
+            [Float(ks[0]*my_dt), Float(ks[1]*my_dt)]
+        }
+        
         while cell_i < num_cells {
             let cell_range = 0..<min(stride, (num_cells-cell_i) )
             
@@ -281,7 +286,7 @@ struct Simulation {
             for chem_i in 0..<num_chems {
                 var vec = zero_vec
                     for i in cell_range {
-                        vec[i] = start_values[cell_i+i][chem_i]
+                        vec[i] = Float(start_values[cell_i+i][chem_i])
                     }
                 vec_store[chem_i] = vec
             }
@@ -290,10 +295,10 @@ struct Simulation {
             for (eqn_i, eqn_coeffs) in eqn_coeffs_list.enumerated() {
                 let lhs_coeffs = eqn_coeffs[0]
                 let rhs_coeffs = eqn_coeffs[1]
-                let ks = rate_list[eqn_i]
-                let term = calc_reaction_termSIMD(vec_store, lhs_coeffs, ks[0]*my_dt) - calc_reaction_termSIMD(vec_store, rhs_coeffs, ks[1]*my_dt)
+                let kdts = kdt_floats[eqn_i]
+                let term = calc_reaction_termSIMD(vec_store, lhs_coeffs, kdts[0]) - calc_reaction_termSIMD(vec_store, rhs_coeffs, kdts[1])
                 
-                let diffs = zip(lhs_coeffs, rhs_coeffs).map{Double($1-$0)}
+                let diffs = zip(lhs_coeffs, rhs_coeffs).map{Float($1-$0)}
                 for chem_i in 0..<num_chems {
                     changes[chem_i] += diffs[chem_i] * term
                 }
@@ -318,18 +323,18 @@ struct Simulation {
         return new_values
     }
     
-    func calc_reaction_termSIMD(_ vec_store: [SIMD64<Double>], _ coeffs: [Int], _ kdt: Double) -> SIMD64<Double> {
-        if kdt == 0.0 { return SIMD64<Double>.init(repeating: 0.0) }
-        var term = SIMD64<Double>.init(repeating: kdt)
+    func calc_reaction_termSIMD(_ vec_store: [SIMD64<Float>], _ coeffs: [Int], _ kdt: Float) -> SIMD64<Float> {
+        if kdt == 0.0 { return SIMD64<Float>.init(repeating: 0.0) }
+        var term = SIMD64<Float>.init(repeating: kdt)
         for chem_i in 0..<num_chems {
             term *= powSIMD(vec_store[chem_i], coeffs[chem_i])
         }
         return term
     }
     
-    func powSIMD(_ x: SIMD64<Double>, _ n: Int) -> SIMD64<Double> {
+    func powSIMD(_ x: SIMD64<Float>, _ n: Int) -> SIMD64<Float> {
         switch n {
-        case 0: return SIMD64(repeating: 1.0)
+        case 0: return SIMD64<Float>(repeating: 1.0)
         case 1: return x
         case 2: return x * x
         case 3: return x * x * x

@@ -25,7 +25,7 @@ struct Preset {
     let dt_default: Double = 0.1
     let brush_chem_i_dbl: Double = 1.0
     let image_scale = 1.5
-    let reaction_method: Reaction_method = .normal_or_hardcoded // currently, SIMD same or slightly slower than normal.
+    let reaction_method: Reaction_method = .SIMD_or_hardcoded // currently, SIMD same or slightly slower than normal.
     
     var chems: [String] {
         get_chems_from_eqns(from: equation_list)
